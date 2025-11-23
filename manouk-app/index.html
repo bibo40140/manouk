@@ -91,10 +91,17 @@
       </div>
 
       <h3>Factures récentes</h3>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <label style="display:flex;align-items:center;gap:8px">Filtrer société:
+          <select id="dashboard-company-filter" style="min-width:160px">
+            <option value="all">Toutes</option>
+          </select>
+        </label>
+      </div>
       <table id="table-invoices-dashboard">
         <thead>
           <tr>
-            <th>#</th><th>Date</th><th>Client</th><th>Total</th><th>Payé</th><th>Restant</th>
+            <th>#</th><th>Société</th><th>Date</th><th>Client</th><th>Total</th><th>Payé</th><th>Restant</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -104,7 +111,7 @@
       <table id="table-purchases-dashboard">
         <thead>
           <tr>
-            <th>#</th><th>Date</th><th>Fournisseur</th><th>Produit</th><th>Qté</th><th>Coût</th><th>Payé</th><th>Restant</th>
+            <th>#</th><th>Société</th><th>Date</th><th>Fournisseur</th><th>Produit</th><th>Qté</th><th>Coût</th><th>Payé</th><th>Restant</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -113,39 +120,50 @@
 
     <section id="invoices">
       <h1>Factures</h1>
-
       <h3>Nouvelle facture</h3>
       <div>
-        <label>Client
-          <select id="invoice-customer"></select>
-        </label>
-        <label style="display:flex;align-items:center;gap:8px">
-          <input type="checkbox" id="invoice-send-email" />
-          <span>Envoyer automatiquement par email au client</span>
-        </label>
+        <button class="primary" id="btn-new-invoice" style="padding:10px 14px">Nouvelle facture</button>
 
-        <div class="card" style="margin-top:8px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-            <strong>Lignes de facture</strong>
-            <div>
-              <button id="btn-add-invoice-line" class="primary" style="padding:6px 10px">Ajouter une ligne</button>
+        <!-- Inline form hidden: use the modal to create invoices -->
+        <div id="invoice-inline-form" style="display:none">
+          <label>Client
+            <select id="invoice-customer"></select>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px">
+            <input type="checkbox" id="invoice-send-email" />
+            <span>Envoyer automatiquement par email au client</span>
+          </label>
+
+          <div class="card" style="margin-top:8px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <strong>Lignes de facture</strong>
+              <div>
+                <button id="btn-add-invoice-line" class="primary" style="padding:6px 10px">Ajouter une ligne</button>
+              </div>
+            </div>
+            <div id="invoice-lines">
+              <!-- rows inserted by renderer.js -->
             </div>
           </div>
-          <div id="invoice-lines">
-            <!-- rows inserted by renderer.js -->
-          </div>
-        </div>
 
-        <div style="margin-top:8px">
-          <button class="primary" id="btn-create-invoice">Créer la facture</button>
+          <div style="margin-top:8px">
+            <button class="primary" id="btn-create-invoice">Créer la facture</button>
+          </div>
         </div>
       </div>
 
       <h3>Liste des factures</h3>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <label style="display:flex;align-items:center;gap:8px">Filtrer société:
+          <select id="invoice-company-filter" style="min-width:160px">
+            <option value="all">Toutes</option>
+          </select>
+        </label>
+      </div>
       <table id="table-invoices">
         <thead>
           <tr>
-            <th>#</th><th>Date</th><th>Client</th><th>Total</th><th>Payé</th><th>Restant</th><th>URSSAF</th><th>Paiement</th><th>Actions</th>
+            <th>#</th><th>Société</th><th>Date</th><th>Client</th><th>Total</th><th>Payé</th><th>Restant</th><th>URSSAF</th><th>Paiement</th><th>Actions</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -159,6 +177,9 @@
       <div>
         <label>Fournisseur
           <select id="purchase-supplier"></select>
+        </label>
+        <label>Société
+          <select id="purchase-company"></select>
         </label>
         <label>Produit
           <select id="purchase-product"></select>
@@ -176,7 +197,7 @@
       <table id="table-purchases">
         <thead>
           <tr>
-            <th>#</th><th>Date</th><th>Fournisseur</th><th>Produit</th><th>Qté</th><th>Coût</th><th>Payé</th><th>Restant</th><th>Paiement</th><th>Actions</th>
+            <th>#</th><th>Société</th><th>Date</th><th>Fournisseur</th><th>Produit</th><th>Qté</th><th>Coût</th><th>Payé</th><th>Restant</th><th>Paiement</th><th>Actions</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -191,6 +212,7 @@
           <button class="tab-btn active" data-tab="tab-products">Produits</button>
           <button class="tab-btn" data-tab="tab-customers">Clients</button>
           <button class="tab-btn" data-tab="tab-suppliers">Fournisseurs</button>
+          <button class="tab-btn" data-tab="tab-companies">Sociétés</button>
           <button class="tab-btn" data-tab="tab-email">Email (Gmail)</button>
         </nav>
 
@@ -211,7 +233,42 @@
             </div>
             <table id="table-products">
               <thead>
-                <tr><th>#</th><th>Nom</th><th>Prix</th><th>Stock</th></tr>
+                <tr><th>#</th><th>Nom</th><th>Prix</th><th>Stock</th><th>Shares</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <!-- Role participants modal -->
+          <div id="role-participants-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;z-index:9999">
+            <div style="background:#fff;padding:16px;border-radius:8px;min-width:320px;max-width:520px;margin:16px">
+              <h3 id="role-participants-title">Configurer participants par rôle</h3>
+              <div id="role-participants-body" style="display:grid;gap:8px;margin-top:8px;max-height:60vh;overflow:auto"></div>
+              <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+                <button id="role-participants-cancel">Annuler</button>
+                <button id="role-participants-save" class="primary">Enregistrer</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="tab-companies" class="tab-pane">
+            <h3>Sociétés (multi-company)</h3>
+            <div class="form-row">
+              <label>Code (unique)
+                <input type="text" id="company-code-new" placeholder="ex: manouk" />
+              </label>
+              <label>Nom
+                <input type="text" id="company-name-new" placeholder="Nom de la société" />
+              </label>
+              <div style="display:flex;align-items:center">
+                <button class="primary" id="btn-add-company">Ajouter la société</button>
+              </div>
+            </div>
+
+            <h4 style="margin-top:12px">Sociétés existantes</h4>
+            <table id="table-companies">
+              <thead>
+                <tr><th>#</th><th>Code</th><th>Nom</th><th>Actions</th></tr>
               </thead>
               <tbody></tbody>
             </table>
@@ -320,6 +377,77 @@
           <button id="email-cancel" style="padding:8px 12px">Annuler</button>
           <button id="email-send" class="primary" style="padding:8px 12px">Envoyer</button>
         </div>
+      </div>
+    </div>
+  </div>
+  <!-- Shares edit modal -->
+  <div id="shares-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;z-index:9999">
+    <div style="background:#fff;padding:16px;border-radius:8px;min-width:320px;max-width:520px;margin:16px">
+      <h3 id="shares-modal-title">Éditer les parts</h3>
+      <div id="shares-modal-body" style="display:grid;gap:8px;margin-top:8px;">
+        <!-- inputs inserted dynamically -->
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button id="shares-cancel">Annuler</button>
+        <button id="shares-save" class="primary">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+  <!-- Role allocation modal (per invoice line) -->
+  <div id="role-alloc-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;z-index:9999">
+    <div style="background:#fff;padding:16px;border-radius:8px;min-width:320px;max-width:720px;margin:16px">
+      <h3 id="role-alloc-title">Répartition par rôles</h3>
+      <div id="role-alloc-body" style="display:grid;gap:8px;margin-top:8px;max-height:60vh;overflow:auto">
+        <!-- rows inserted dynamically -->
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button id="role-alloc-cancel">Annuler</button>
+        <button id="role-alloc-save" class="primary">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+  <!-- Invoice edit modal (edit whole invoice before create) -->
+  <div id="invoice-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;z-index:9999">
+    <div style="background:#fff;padding:16px;border-radius:8px;min-width:320px;max-width:900px;margin:16px">
+      <h3 id="invoice-edit-title">Créer la facture</h3>
+      <div style="display:grid;gap:8px">
+        <label>Client
+          <select id="invoice-edit-customer" style="width:100%"></select>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" id="invoice-edit-send-email" />
+          <span>Envoyer automatiquement par email au client</span>
+        </label>
+
+        <div class="card" style="margin-top:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <strong>Lignes de facture (édition)</strong>
+            <div>
+              <button id="invoice-edit-add-line" class="primary" style="padding:6px 10px">Ajouter une ligne</button>
+            </div>
+          </div>
+          <div id="invoice-edit-lines" style="display:grid;gap:8px;max-height:50vh;overflow:auto">
+            <!-- lines inserted dynamically -->
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+          <button id="invoice-edit-cancel">Annuler</button>
+          <button id="invoice-edit-save" class="primary">Créer la facture</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Product role config modal: configure companies + amounts per role -->
+  <div id="product-role-config-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;z-index:9999">
+    <div style="background:#fff;padding:16px;border-radius:8px;min-width:320px;max-width:720px;margin:16px">
+      <h3 id="product-role-config-title">Configurer rôles et parts</h3>
+      <div id="product-role-config-body" style="display:grid;gap:8px;margin-top:8px;max-height:60vh;overflow:auto">
+        <!-- rows inserted dynamically: for each role -> amount input + company checkboxes -->
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button id="product-role-config-cancel">Annuler</button>
+        <button id="product-role-config-save" class="primary">Enregistrer</button>
       </div>
     </div>
   </div>
