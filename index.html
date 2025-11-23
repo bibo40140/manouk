@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Manouk - Gestion</title>
+  <style>
+    :root{
+      --accent: #0b7bbf;
+      --muted: #666;
+      --bg: #f6f9fb;
+      --card: #ffffff;
+    }
+    *{box-sizing:border-box}
+    body{
+      font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+      margin:0; height:100vh; display:flex; background:var(--bg);
+    }
+    aside{
+      width:220px; background:linear-gradient(180deg,#0f1720,#0b2630); color:#fff; padding:1rem; display:flex; flex-direction:column; gap:8px;
+    }
+    aside h2{margin:0 0 8px 0; font-size:1.1rem}
+    .nav-btn{background:transparent; color:rgba(255,255,255,0.9); border:none; padding:10px; text-align:left; border-radius:6px; cursor:pointer}
+    .nav-btn:hover{background:rgba(255,255,255,0.03)}
+    .nav-btn.active{background:rgba(255,255,255,0.06); color:var(--accent)}
+    main{flex:1;padding:18px;overflow:auto}
+    section{display:none}
+    section.active{display:block}
+    h1{margin:0 0 12px 0}
+    .card{background:var(--card); padding:12px; border-radius:8px; box-shadow:0 1px 4px rgba(16,24,40,0.06); margin-bottom:12px}
+    .treso{font-size:1.25rem;font-weight:600;color:var(--accent)}
+
+    /* Tabs */
+    .tabs{margin-top:8px}
+    .tab-nav{display:flex;gap:8px;margin-bottom:12px}
+    .tab-btn{background:#fff;border:1px solid #e6eef5;padding:8px 12px;border-radius:6px;cursor:pointer}
+    .tab-btn.active{background:var(--accent); color:#fff; border-color:var(--accent)}
+    .tab-content .tab-pane{display:none}
+    .tab-content .tab-pane.active{display:block}
+
+    .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;align-items:end}
+    label{font-size:0.9rem;color:var(--muted)}
+    input, select, textarea{padding:8px;border:1px solid #e6eef5;border-radius:6px;background:#fff}
+    button.primary{background:var(--accent);color:#fff;border:none;padding:8px 12px;border-radius:6px;cursor:pointer}
+    table{width:100%;border-collapse:collapse;margin-top:8px}
+    th,td{padding:8px;border-bottom:1px solid #eef6fb;text-align:left}
+    ul{list-style:none;padding:0;margin:0}
+    ul li{padding:8px;border:1px solid #eef6fb;background:#fff;border-radius:6px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between}
+    .muted{color:var(--muted);font-size:0.9rem}
+  </style>
+</head>
+<body>
+  <aside>
+    <h2>Manouk</h2>
+    <button class="nav-btn active" data-target="dashboard">📊 Tableau de bord</button>
+    <button class="nav-btn" data-target="invoices">📄 Factures</button>
+    <button class="nav-btn" data-target="purchases">🧾 Achats</button>
+    <button class="nav-btn" data-target="settings">⚙️ Paramètres</button>
+  </aside>
+  <main>
+    <section id="dashboard" class="active">
+      <h1>Tableau de bord</h1>
+      <div class="card" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;align-items:start">
+        <div>
+          <div style="font-size:0.9rem;color:var(--muted)">CA (Chiffre d'affaires)</div>
+          <div class="treso" id="ca-value">0 €</div>
+        </div>
+        <div>
+          <div style="font-size:0.9rem;color:var(--muted)">Créances (à encaisser)</div>
+          <div id="receivables-value">0 €</div>
+        </div>
+        <div>
+          <div style="font-size:0.9rem;color:var(--muted)">Dettes fournisseurs</div>
+          <div id="payables-value">0 €</div>
+        </div>
+        <div>
+          <div style="font-size:0.9rem;color:var(--muted)">URSSAF (restant)</div>
+          <div id="urssaf-value">0 €</div>
+        </div>
+        <div>
+          <div style="font-size:0.9rem;color:var(--muted)">Solde actuel</div>
+          <div id="current-net-value">0 €</div>
+        </div>
+        <div>
+          <div style="font-size:0.9rem;color:var(--muted)">Si tout soldé (cash)</div>
+          <div id="settled-net-value">0 €</div>
+        </div>
+        <div>
+          <div style="font-size:0.9rem;color:var(--muted)">Résultat (CA - Achats - URSSAF)</div>
+          <div id="result-value">0 €</div>
+        </div>
+      </div>
+
+      <h3>Factures récentes</h3>
+      <table id="table-invoices-dashboard">
+        <thead>
+          <tr>
+            <th>#</th><th>Date</th><th>Client</th><th>Total</th><th>Payé</th><th>Restant</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <h3>Achats récents</h3>
+      <table id="table-purchases-dashboard">
+        <thead>
+          <tr>
+            <th>#</th><th>Date</th><th>Fournisseur</th><th>Produit</th><th>Qté</th><th>Coût</th><th>Payé</th><th>Restant</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section id="invoices">
+      <h1>Factures</h1>
+
+      <h3>Nouvelle facture</h3>
+      <div>
+        <label>Client
+          <select id="invoice-customer"></select>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" id="invoice-send-email" />
+          <span>Envoyer automatiquement par email au client</span>
+        </label>
+
+        <div class="card" style="margin-top:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <strong>Lignes de facture</strong>
+            <div>
+              <button id="btn-add-invoice-line" class="primary" style="padding:6px 10px">Ajouter une ligne</button>
+            </div>
+          </div>
+          <div id="invoice-lines">
+            <!-- rows inserted by renderer.js -->
+          </div>
+        </div>
+
+        <div style="margin-top:8px">
+          <button class="primary" id="btn-create-invoice">Créer la facture</button>
+        </div>
+      </div>
+
+      <h3>Liste des factures</h3>
+      <table id="table-invoices">
+        <thead>
+          <tr>
+            <th>#</th><th>Date</th><th>Client</th><th>Total</th><th>Payé</th><th>Restant</th><th>URSSAF</th><th>Paiement</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section id="purchases">
+      <h1>Achats fournisseurs</h1>
+
+      <h3>Nouvel achat</h3>
+      <div>
+        <label>Fournisseur
+          <select id="purchase-supplier"></select>
+        </label>
+        <label>Produit
+          <select id="purchase-product"></select>
+        </label>
+        <label>Quantité
+          <input type="number" id="purchase-qty" value="1" min="0.01" step="0.01"/>
+        </label>
+        <label>Coût unitaire (€)
+          <input type="number" id="purchase-unit-cost" value="0.5" min="0" step="0.01"/>
+        </label>
+        <button class="primary" id="btn-add-purchase">Enregistrer l'achat</button>
+      </div>
+
+      <h3>Historique des achats</h3>
+      <table id="table-purchases">
+        <thead>
+          <tr>
+            <th>#</th><th>Date</th><th>Fournisseur</th><th>Produit</th><th>Qté</th><th>Coût</th><th>Payé</th><th>Restant</th><th>Paiement</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section id="settings">
+      <h1>Paramètres</h1>
+
+      <div class="tabs">
+        <nav class="tab-nav">
+          <button class="tab-btn active" data-tab="tab-products">Produits</button>
+          <button class="tab-btn" data-tab="tab-customers">Clients</button>
+          <button class="tab-btn" data-tab="tab-suppliers">Fournisseurs</button>
+          <button class="tab-btn" data-tab="tab-email">Email (Gmail)</button>
+        </nav>
+
+        <div class="tab-content">
+          <div id="tab-products" class="tab-pane active">
+            <h3>Produits</h3>
+            <div class="form-row">
+              <label>Nom du produit
+                <input type="text" id="product-name" placeholder="Ex: Étuis à lunettes"/>
+              </label>
+              <label>Prix de vente (€)
+                <input type="number" id="product-price" value="3" min="0" step="0.01"/>
+              </label>
+              <label>Stock initial
+                <input type="number" id="product-stock" value="0" min="0"/>
+              </label>
+              <button class="primary" id="btn-add-product">Ajouter le produit</button>
+            </div>
+            <table id="table-products">
+              <thead>
+                <tr><th>#</th><th>Nom</th><th>Prix</th><th>Stock</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <div id="tab-customers" class="tab-pane">
+            <h3>Clients</h3>
+            <div class="form-row">
+              <label>Nom
+                <input type="text" id="customer-name" placeholder="Nom du client"/>
+              </label>
+              <label>Email
+                <input type="email" id="customer-email" placeholder="email (pour envoi facture)"/>
+              </label>
+              <button class="primary" id="btn-add-customer">Ajouter le client</button>
+            </div>
+            <ul id="list-customers"></ul>
+          </div>
+
+          <div id="tab-suppliers" class="tab-pane">
+            <h3>Fournisseurs</h3>
+            <div class="form-row">
+              <label>Nom
+                <input type="text" id="supplier-name" placeholder="Nom du fournisseur"/>
+              </label>
+              <button class="primary" id="btn-add-supplier">Ajouter le fournisseur</button>
+            </div>
+            <ul id="list-suppliers"></ul>
+          </div>
+
+          <div id="tab-email" class="tab-pane">
+            <h3>Configuration Email (SMTP / Gmail)</h3>
+            <p class="muted">Utilisez un mot de passe d'application Gmail (ou vos identifiants SMTP). Les paramètres sont stockés localement.</p>
+
+            <h4>Informations société</h4>
+            <div class="form-row">
+              <label>Nom de la société
+                <input type="text" id="company-name" placeholder="Nom ou votre nom" />
+              </label>
+              <label>Adresse
+                <input type="text" id="company-address" placeholder="Adresse complète" />
+              </label>
+              <label>SIRET / SIREN
+                <input type="text" id="company-siret" placeholder="SIRET ou SIREN" />
+              </label>
+              <label>Mentions légales (auto-entrepreneur)
+                <input type="text" id="company-legal" placeholder="Ex: TVA non applicable, art. 293 B CGI" />
+              </label>
+              <label>Logo (chemin relatif ex: logo.png)
+                <div style="display:flex;gap:8px;align-items:center">
+                  <input type="text" id="company-logo" placeholder="logo.png" />
+                  <button type="button" id="btn-browse-logo" class="primary" style="padding:6px 10px">Parcourir</button>
+                </div>
+              </label>
+              <button class="primary" id="btn-save-company">Enregistrer société</button>
+            </div>
+            <div class="form-row">
+              <label>SMTP Host
+                <input type="text" id="smtp-host" placeholder="smtp.gmail.com" />
+              </label>
+              <label>Port
+                <input type="number" id="smtp-port" value="465" />
+              </label>
+              <label>Secure
+                <select id="smtp-secure"><option value="true">Oui (SSL)</option><option value="false">Non (TLS)</option></select>
+              </label>
+              <label>Utilisateur (email)
+                <input type="email" id="smtp-user" placeholder="votre@exemple.com" />
+              </label>
+              <label>Mot de passe / App Password
+                <input type="password" id="smtp-pass" placeholder="mot de passe" />
+              </label>
+              <button class="primary" id="btn-save-smtp">Enregistrer SMTP</button>
+            </div>
+
+            <h4>Tester l'envoi</h4>
+            <div class="form-row">
+              <label>Destinataire
+                <input type="email" id="test-to" placeholder="destinataire@exemple.com" />
+              </label>
+              <label>Sujet
+                <input type="text" id="test-subject" placeholder="Test email" />
+              </label>
+              <label>Message
+                <textarea id="test-body" placeholder="Bonjour, ceci est un test." style="width:100%;height:80px"></textarea>
+              </label>
+              <button class="primary" id="btn-send-test">Envoyer test</button>
+            </div>
+            <div id="email-result" style="margin-top:8px;color:green"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <script src="renderer.js"></script>
+  </main>
+  <!-- Email compose modal -->
+  <div id="email-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;z-index:9999">
+    <div style="background:#fff;padding:16px;border-radius:8px;min-width:320px;max-width:720px;margin:16px">
+      <h3>Composer l'email</h3>
+      <div style="display:grid;gap:8px">
+        <label>À<br/><input type="email" id="email-to" style="width:100%" /></label>
+        <label>Sujet<br/><input type="text" id="email-subject" style="width:100%" /></label>
+        <label>Message<br/><textarea id="email-body" style="width:100%;height:160px"></textarea></label>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button id="email-cancel" style="padding:8px 12px">Annuler</button>
+          <button id="email-send" class="primary" style="padding:8px 12px">Envoyer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
