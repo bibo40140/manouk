@@ -1,0 +1,17 @@
+{
+  "name": "manouk-gestion",
+  "version": "1.0.0",
+  "description": "Gestion factures / achats / stock pour Manouk",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.4.6",
+    "electron": "^39.2.3",
+    "nodemailer": "^7.0.10"
+  },
+  "devDependencies": {
+    "electron-rebuild": "^3.2.9"
+  }
+}

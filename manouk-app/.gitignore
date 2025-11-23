@@ -1,0 +1,16 @@
+node_modules/
+dist/
+out/
+.vscode/
+.DS_Store
+*.log
+*.sqlite
+*.db
+env.local
+.env
+*.pem
+*.key
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
