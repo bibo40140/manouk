@@ -5,7 +5,7 @@ async function test() {
     host: 'smtp.gmail.com',
     port: 465, // ou 587
     secure: true, // false si port 587
-    auth: { user: 'lordbibo@gmail.com', pass: 'awgw getw nowu isdm' }
+    auth: { user: 'MAIL', pass: 'PASSWORD' }
   };
 
   const transporter = nodemailer.createTransport(smtp);
