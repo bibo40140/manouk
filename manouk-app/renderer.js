@@ -2756,6 +2756,312 @@ document.addEventListener('DOMContentLoaded', () => {
     await refresh();
   });
 
+  // ========== TRÉSORERIE PRÉVISIONNELLE ==========
+  
+  let forecastChart = null;
+  
+  function renderForecastInputs() {
+    const container = document.getElementById('forecast-inputs');
+    if (!container) return;
+    
+    const products = state.products || [];
+    if (products.length === 0) {
+      container.innerHTML = '<p class="muted">Aucun produit configuré. Ajoutez des produits dans Paramètres → Produits.</p>';
+      return;
+    }
+    
+    // Générer 6 mois futurs
+    const months = [];
+    const today = new Date();
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
+      months.push({
+        label: d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
+        key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      });
+    }
+    
+    container.innerHTML = '';
+    
+    products.forEach(product => {
+      const productCard = document.createElement('div');
+      productCard.style.cssText = 'border:1px solid var(--border);padding:16px;border-radius:8px;background:#f8fafc';
+      
+      let html = `<div style="font-weight:600;margin-bottom:12px;color:#334155">${product.name} (${formatEuro(product.price)} / unité)</div>`;
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">';
+      
+      months.forEach(month => {
+        html += `
+          <div>
+            <label style="font-size:0.8rem;color:#64748b">${month.label}</label>
+            <input type="number" 
+              data-product-id="${product.id}" 
+              data-month="${month.key}" 
+              class="forecast-qty-input"
+              min="0" 
+              step="1" 
+              value="0"
+              placeholder="Qté"
+              style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;margin-top:4px" />
+          </div>
+        `;
+      });
+      
+      html += '</div>';
+      productCard.innerHTML = html;
+      container.appendChild(productCard);
+    });
+  }
+  
+  async function calculateForecast() {
+    const products = state.products || [];
+    const rawMaterials = state.rawMaterials || [];
+    
+    if (products.length === 0) {
+      showToast('Aucun produit disponible pour la simulation', 'warning');
+      return;
+    }
+    
+    // Récupérer toutes les BOM (nomenclatures)
+    const boms = {};
+    for (const product of products) {
+      const bomData = await window.api.getProductMaterials(product.id);
+      boms[product.id] = bomData || [];
+    }
+    
+    // Collecter les inputs
+    const inputs = document.querySelectorAll('.forecast-qty-input');
+    const salesByMonth = {}; // { '2025-11': { productId: qty, ... }, ... }
+    
+    inputs.forEach(input => {
+      const productId = parseInt(input.dataset.productId, 10);
+      const month = input.dataset.month;
+      const qty = parseFloat(input.value || '0');
+      
+      if (qty > 0) {
+        if (!salesByMonth[month]) salesByMonth[month] = {};
+        salesByMonth[month][productId] = qty;
+      }
+    });
+    
+    if (Object.keys(salesByMonth).length === 0) {
+      showToast('Aucune vente saisie. Entrez des quantités pour simuler.', 'warning');
+      return;
+    }
+    
+    // Calculer pour chaque mois
+    const months = Object.keys(salesByMonth).sort();
+    const results = [];
+    let cumulativeBalance = 0;
+    let totalRevenue = 0;
+    let totalExpenses = 0;
+    
+    months.forEach(month => {
+      const sales = salesByMonth[month];
+      let revenue = 0;
+      let materialCost = 0;
+      let totalUnits = 0;
+      
+      // Calcul CA et coûts matières
+      Object.keys(sales).forEach(productIdStr => {
+        const productId = parseInt(productIdStr, 10);
+        const qty = sales[productId];
+        const product = products.find(p => p.id === productId);
+        
+        if (product) {
+          revenue += product.price * qty;
+          totalUnits += qty;
+          
+          // Calculer coût matières via BOM
+          const bom = boms[productId] || [];
+          bom.forEach(bomItem => {
+            const material = rawMaterials.find(m => m.id === bomItem.raw_material_id);
+            if (material) {
+              materialCost += material.unit_cost * bomItem.quantity * qty;
+            }
+          });
+        }
+      });
+      
+      // URSSAF 22% du CA (simplifié)
+      const urssaf = revenue * 0.22;
+      const totalExpense = materialCost + urssaf;
+      const netResult = revenue - totalExpense;
+      cumulativeBalance += netResult;
+      
+      totalRevenue += revenue;
+      totalExpenses += totalExpense;
+      
+      results.push({
+        month,
+        units: totalUnits,
+        revenue,
+        materialCost,
+        urssaf,
+        totalExpense,
+        netResult,
+        balance: cumulativeBalance
+      });
+    });
+    
+    // Afficher résultats
+    renderForecastResults(results, totalRevenue, totalExpenses);
+  }
+  
+  function renderForecastResults(results, totalRevenue, totalExpenses) {
+    const resultsDiv = document.getElementById('forecast-results');
+    if (!resultsDiv) return;
+    
+    resultsDiv.style.display = 'block';
+    
+    // Remplir le tableau
+    const tbody = document.querySelector('#table-forecast tbody');
+    tbody.innerHTML = '';
+    
+    results.forEach(r => {
+      const row = tbody.insertRow();
+      const monthLabel = new Date(r.month + '-01').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+      
+      row.innerHTML = `
+        <td style="font-weight:600">${monthLabel}</td>
+        <td>${r.units}</td>
+        <td style="color:#059669;font-weight:600">${formatEuro(r.revenue)}</td>
+        <td style="color:#dc2626">${formatEuro(r.materialCost)}</td>
+        <td style="color:#ea580c">${formatEuro(r.urssaf)}</td>
+        <td style="color:#dc2626;font-weight:600">${formatEuro(r.totalExpense)}</td>
+        <td style="color:${r.netResult >= 0 ? '#059669' : '#dc2626'};font-weight:600">${formatEuro(r.netResult)}</td>
+        <td style="font-weight:700;color:${r.balance >= 0 ? '#059669' : '#dc2626'}">${formatEuro(r.balance)}</td>
+      `;
+    });
+    
+    // Stats résumées
+    const netResult = totalRevenue - totalExpenses;
+    const finalBalance = results[results.length - 1].balance;
+    
+    document.getElementById('forecast-total-revenue').textContent = formatEuro(totalRevenue);
+    document.getElementById('forecast-total-expenses').textContent = formatEuro(totalExpenses);
+    document.getElementById('forecast-net-result').textContent = formatEuro(netResult);
+    document.getElementById('forecast-net-result').style.color = netResult >= 0 ? '#059669' : '#dc2626';
+    document.getElementById('forecast-final-balance').textContent = formatEuro(finalBalance);
+    document.getElementById('forecast-final-balance').style.color = finalBalance >= 0 ? '#059669' : '#dc2626';
+    
+    // Graphique
+    renderForecastChart(results);
+    
+    showToast('Simulation calculée avec succès !', 'success');
+  }
+  
+  function renderForecastChart(results) {
+    const canvas = document.getElementById('forecast-chart');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    
+    // Détruire ancien graphique
+    if (forecastChart) {
+      forecastChart.destroy();
+    }
+    
+    const labels = results.map(r => {
+      const d = new Date(r.month + '-01');
+      return d.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+    });
+    
+    forecastChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'CA (€)',
+            data: results.map(r => r.revenue),
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            borderWidth: 2,
+            tension: 0.3,
+            fill: true
+          },
+          {
+            label: 'Dépenses (€)',
+            data: results.map(r => r.totalExpense),
+            borderColor: '#ef4444',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            borderWidth: 2,
+            tension: 0.3,
+            fill: true
+          },
+          {
+            label: 'Solde cumulé (€)',
+            data: results.map(r => r.balance),
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            borderWidth: 3,
+            tension: 0.3,
+            fill: true
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: {
+              font: { size: 13, weight: '600' },
+              padding: 15
+            }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            padding: 12,
+            titleFont: { size: 14, weight: 'bold' },
+            bodyFont: { size: 13 },
+            callbacks: {
+              label: function(context) {
+                return context.dataset.label + ': ' + formatEuro(context.parsed.y);
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: function(value) {
+                return formatEuro(value);
+              },
+              font: { size: 11 }
+            },
+            grid: { color: 'rgba(0, 0, 0, 0.05)' }
+          },
+          x: {
+            ticks: { font: { size: 11, weight: '600' } },
+            grid: { display: false }
+          }
+        }
+      }
+    });
+  }
+  
+  // Event listeners
+  document.getElementById('btn-calculate-forecast')?.addEventListener('click', calculateForecast);
+  
+  document.getElementById('btn-reset-forecast')?.addEventListener('click', () => {
+    document.querySelectorAll('.forecast-qty-input').forEach(input => input.value = '0');
+    document.getElementById('forecast-results').style.display = 'none';
+    showToast('Simulation réinitialisée', 'info');
+  });
+  
+  // Render inputs when navigating to forecast section
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    if (btn.dataset.target === 'forecast') {
+      btn.addEventListener('click', () => {
+        setTimeout(renderForecastInputs, 100);
+      });
+    }
+  });
+
   // Chargement initial
   refresh();
 });

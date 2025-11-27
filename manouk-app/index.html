@@ -352,6 +352,20 @@
       border-radius:12px;
       box-shadow:var(--shadow-md);
     }
+
+    /* Badge styles */
+    .badge{
+      display:inline-block;
+      padding:4px 10px;
+      border-radius:6px;
+      font-size:12px;
+      font-weight:600;
+      white-space:nowrap;
+    }
+    .badge-ok{
+      background:#d1fae5;
+      color:#065f46;
+    }
   </style>
 </head>
 <body>
@@ -360,6 +374,7 @@
     <button class="nav-btn active" data-target="dashboard">📊 Tableau de bord</button>
     <button class="nav-btn" data-target="invoices">📄 Factures</button>
     <button class="nav-btn" data-target="purchases">🧾 Achats</button>
+    <button class="nav-btn" data-target="forecast">💰 Trésorerie prévisionnelle</button>
     <button class="nav-btn" data-target="settings">⚙️ Paramètres</button>
   </aside>
   <main>
@@ -489,6 +504,71 @@
       </div>
       <div id="invoices-list" style="display:grid;gap:12px">
         <!-- Invoice cards will be inserted here -->
+      </div>
+    </section>
+
+    <section id="forecast">
+      <h1>💰 Trésorerie prévisionnelle</h1>
+      <p class="muted">Simulez vos ventes futures pour anticiper votre trésorerie. Les coûts matières et l'URSSAF sont calculés automatiquement.</p>
+
+      <div class="card">
+        <h3>📅 Simulation de ventes (6 prochains mois)</h3>
+        <div id="forecast-inputs" style="display:grid;gap:12px;margin-top:16px">
+          <!-- Inputs dynamiques par produit et par mois -->
+        </div>
+        <div style="margin-top:16px;display:flex;gap:8px">
+          <button class="primary" id="btn-calculate-forecast">🔮 Calculer la simulation</button>
+          <button id="btn-reset-forecast" style="padding:10px 16px;border:1px solid var(--border);background:#fff;border-radius:8px;cursor:pointer">🔄 Réinitialiser</button>
+        </div>
+      </div>
+
+      <div id="forecast-results" style="display:none">
+        <div class="card">
+          <h3>📊 Résultat de la simulation</h3>
+          <div class="chart-container">
+            <canvas id="forecast-chart"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>📋 Détail mensuel</h3>
+          <div style="overflow-x:auto">
+            <table id="table-forecast">
+              <thead>
+                <tr>
+                  <th>Mois</th>
+                  <th>Ventes (unités)</th>
+                  <th>CA (€)</th>
+                  <th>Coût matières (€)</th>
+                  <th>URSSAF (22%)</th>
+                  <th>Total dépenses (€)</th>
+                  <th>Résultat (€)</th>
+                  <th>Solde cumulé (€)</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card success">
+            <div class="stat-label">CA prévisionnel total</div>
+            <div class="stat-value" id="forecast-total-revenue">0 €</div>
+          </div>
+          <div class="stat-card danger">
+            <div class="stat-label">Dépenses totales</div>
+            <div class="stat-value" id="forecast-total-expenses">0 €</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Résultat net prévisionnel</div>
+            <div class="stat-value" id="forecast-net-result">0 €</div>
+          </div>
+          <div class="stat-card warning">
+            <div class="stat-label">Solde final</div>
+            <div class="stat-value" id="forecast-final-balance">0 €</div>
+          </div>
+        </div>
       </div>
     </section>
 
