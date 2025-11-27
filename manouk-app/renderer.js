@@ -16,11 +16,54 @@ let state = {
   totalFournisseurs: 0,
   current_cash: 0,
   settled_cash: 0,
-  result_if_settled: 0
+  result_if_settled: 0,
+  productStats: [],
+  overdueInvoices: { count: 0, amount: 0 },
+  lowStockProducts: [],
+  monthlyRevenue: [],
+  rawMaterials: [],
+  rawMaterialPurchases: []
 };
 
 // global company filter for dashboard (company id as string or 'all')
 let currentCompanyFilter = 'all';
+
+// Chart.js instances
+let revenueChart = null;
+let profitabilityChart = null;
+
+// Toast notification system
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  
+  const icons = {
+    success: '✅',
+    error: '❌',
+    warning: '⚠️',
+    info: 'ℹ️'
+  };
+  
+  toast.innerHTML = `
+    <div class="toast-icon">${icons[type] || icons.info}</div>
+    <div class="toast-content">${message}</div>
+  `;
+  
+  container.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.animation = 'slideOutRight 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
+}
+
+// Replace all alerts with toast notifications
+window.alert = function(message) {
+  showToast(message, 'info');
+};
 
 function formatEuro(value) {
   return (value || 0).toFixed(2) + ' €';
@@ -42,7 +85,6 @@ function renderDashboard() {
   const recEl = document.getElementById('receivables-value');
   const payEl = document.getElementById('payables-value');
   const urssEl = document.getElementById('urssaf-value');
-  const curEl = document.getElementById('current-net-value');
   const setEl = document.getElementById('settled-net-value');
   const resEl = document.getElementById('result-value');
 
@@ -50,24 +92,38 @@ function renderDashboard() {
   const filterId = (currentCompanyFilter && currentCompanyFilter !== 'all') ? parseInt(currentCompanyFilter, 10) : null;
   const filteredInvoices = (state.invoices || []).filter(i => !filterId || i.company_id === filterId);
   const filteredPurchases = (state.purchases || []).filter(p => !filterId || p.company_id === filterId);
+  const filteredRawPurchases = (state.rawMaterialPurchases || []).filter(p => !filterId || p.company_id === filterId);
 
-  const ca_total = filteredInvoices.reduce((s, i) => s + (parseFloat(i.total) || 0), 0);
+  // CA = factures payées
+  const ca_paid_total = filteredInvoices.reduce((s, i) => s + (parseFloat(i.paid) || 0), 0);
+  // Créances = montants restant à encaisser
   const receivables_total = filteredInvoices.reduce((s, i) => s + (parseFloat(i.due) || 0), 0);
   const purchases_total = filteredPurchases.reduce((s, p) => s + (parseFloat(p.total_cost) || 0), 0);
+  const raw_purchases_total = filteredRawPurchases.reduce((s, p) => s + (parseFloat(p.total_cost) || 0), 0);
+  const all_purchases_total = purchases_total + raw_purchases_total;
   const payables_total = filteredPurchases.reduce((s, p) => s + (parseFloat(p.due) || 0), 0);
+  const raw_payables_total = filteredRawPurchases.reduce((s, p) => s + (parseFloat(p.due) || 0), 0);
+  const all_payables_total = payables_total + raw_payables_total;
   const urssaf_due = filteredInvoices.reduce((s, i) => s + (parseFloat(i.urssaf_due) || 0), 0);
+  const urssaf_paid = filteredInvoices.reduce((s, i) => s + (parseFloat(i.urssaf_paid) || 0), 0);
+  const urssaf_total = filteredInvoices.reduce((s, i) => s + (parseFloat(i.urssaf_amount) || 0), 0);
 
-  if (caEl) caEl.textContent = formatEuro(ca_total || 0);
+  if (caEl) caEl.textContent = formatEuro(ca_paid_total || 0);
   if (recEl) recEl.textContent = formatEuro(receivables_total || 0);
-  if (payEl) payEl.textContent = formatEuro(payables_total || 0);
+  if (payEl) payEl.textContent = formatEuro(all_payables_total || 0);
   if (urssEl) urssEl.textContent = formatEuro(urssaf_due || 0);
-  // keep simple approximations for cash/result
-  const paidInvoices = filteredInvoices.reduce((s, i) => s + (parseFloat(i.paid) || 0), 0);
+  const paidInvoices = ca_paid_total;
   const paidPurchases = filteredPurchases.reduce((s, p) => s + (parseFloat(p.paid) || 0), 0);
-  const current_cash = paidInvoices - paidPurchases - urssaf_due;
-  if (curEl) curEl.textContent = formatEuro(current_cash || 0);
-  if (setEl) setEl.textContent = formatEuro(paidInvoices || 0);
-  if (resEl) resEl.textContent = formatEuro((ca_total - purchases_total - urssaf_due) || 0);
+  const paidRawPurchases = filteredRawPurchases.reduce((s, p) => s + (parseFloat(p.paid) || 0), 0);
+  const suppliers_paid_total = paidPurchases + paidRawPurchases;
+  // Prévisionnel = Total factures - Total achats - Total URSSAF (payés et en cours)
+  const forecast_total = (filteredInvoices.reduce((s, i) => s + (parseFloat(i.total) || 0), 0)) - all_purchases_total - urssaf_total;
+  if (setEl) setEl.textContent = formatEuro(forecast_total || 0);
+  // Résultat = factures payées - achats payés - URSSAF payé
+  if (resEl) resEl.textContent = formatEuro((paidInvoices - suppliers_paid_total - urssaf_paid) || 0);
+  // Achats = total achats payés
+  const supPaidEl = document.getElementById('suppliers-paid-value');
+  if (supPaidEl) supPaidEl.textContent = formatEuro(suppliers_paid_total || 0);
 
   // Recent invoices (same as before)
   const tbodyInvDash = document.querySelector('#table-invoices-dashboard tbody');
@@ -127,6 +183,277 @@ function renderDashboard() {
     `;
     tbodyPurDash.appendChild(tr);
   });
+
+  // Render alerts
+  renderDashboardAlerts();
+  
+  // Render charts
+  renderRevenueChart();
+  renderProfitabilityChart();
+}
+
+function renderDashboardAlerts() {
+  const alertsContainer = document.getElementById('dashboard-alerts');
+  if (!alertsContainer) return;
+  
+  alertsContainer.innerHTML = '';
+  
+  // Appliquer le filtre de société
+  const filterId = currentCompanyFilter === 'all' ? null : parseInt(currentCompanyFilter, 10);
+  
+  // Overdue invoices alert (filtré par société)
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const overdueInvoices = (state.invoices || []).filter(i => {
+    if (filterId && i.company_id !== filterId) return false;
+    const invoiceDate = new Date(i.date);
+    return (parseFloat(i.due) || 0) > 0.01 && invoiceDate < thirtyDaysAgo;
+  });
+  const overdueCount = overdueInvoices.length;
+  const overdueAmount = overdueInvoices.reduce((s, i) => s + (parseFloat(i.due) || 0), 0);
+  
+  if (overdueCount > 0) {
+    const alert = document.createElement('div');
+    alert.className = 'alert warning';
+    alert.innerHTML = `<strong>⚠️ Factures en retard :</strong> ${overdueCount} facture(s) en retard (>30 jours) pour un total de ${formatEuro(overdueAmount)}`;
+    alertsContainer.appendChild(alert);
+  }
+  
+  // Low stock alert
+  if (state.lowStockProducts && state.lowStockProducts.length > 0) {
+    const alert = document.createElement('div');
+    alert.className = 'alert danger';
+    const productNames = state.lowStockProducts.map(p => `${p.name} (${p.stock})`).join(', ');
+    alert.innerHTML = `<strong>🔴 Stock faible :</strong> ${state.lowStockProducts.length} produit(s) avec stock < 10 : ${productNames}`;
+    alertsContainer.appendChild(alert);
+  }
+}
+
+function renderRevenueChart() {
+  const canvas = document.getElementById('revenue-chart');
+  if (!canvas) return;
+  
+  const ctx = canvas.getContext('2d');
+  
+  // Destroy existing chart
+  if (revenueChart) {
+    revenueChart.destroy();
+  }
+  
+  // Apply company filter
+  const filterId = (currentCompanyFilter && currentCompanyFilter !== 'all') ? parseInt(currentCompanyFilter, 10) : null;
+  
+  // Prepare per-payment data points (filtered by company)
+  const invPaymentsRaw = (state.invoicePayments || [])
+    .filter(p => !filterId || p.company_id === filterId)
+    .map(p => ({ date: p.date, amount: parseFloat(p.amount) || 0 }))
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+  
+  const purPaysRaw = (state.purchasePayments || [])
+    .filter(p => !filterId || p.company_id === filterId)
+    .map(p => ({ date: p.date, amount: parseFloat(p.amount) || 0 }));
+  const rawPaysRaw = (state.rawPurchasePaidEvents || [])
+    .filter(p => !filterId || p.company_id === filterId)
+    .map(p => ({ date: p.date, amount: parseFloat(p.amount) || 0 }));
+  const expPaymentsRaw = [...purPaysRaw, ...rawPaysRaw].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  // Build cumulative series for encaissements
+  let cumInv = 0;
+  const invPaysCumulative = invPaymentsRaw.map(p => {
+    cumInv += p.amount;
+    return { x: p.date, y: cumInv };
+  });
+
+  // Build cumulative series for décaissements
+  let cumExp = 0;
+  const expPaysCumulative = expPaymentsRaw.map(p => {
+    cumExp += p.amount;
+    return { x: p.date, y: cumExp };
+  });
+
+  // Build cumulative result series: encaissements - décaissements
+  const events = [
+    ...invPaymentsRaw.map(e => ({ d: e.date, v: e.amount })),
+    ...expPaymentsRaw.map(e => ({ d: e.date, v: -e.amount }))
+  ].sort((a, b) => new Date(a.d) - new Date(b.d));
+  let cumResult = 0;
+  const resultLine = events.map(e => { cumResult += (parseFloat(e.v) || 0); return { x: e.d, y: cumResult }; });
+  
+  revenueChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: [
+        {
+          label: 'Encaissements cumulés',
+          data: invPaysCumulative,
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          borderColor: 'rgba(16, 185, 129, 1)',
+          borderWidth: 2,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          pointBackgroundColor: 'rgba(16, 185, 129, 1)',
+          fill: false,
+          tension: 0
+        },
+        {
+          label: 'Décaissements cumulés',
+          data: expPaysCumulative,
+          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          borderColor: 'rgba(239, 68, 68, 1)',
+          borderWidth: 2,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          pointBackgroundColor: 'rgba(239, 68, 68, 1)',
+          fill: false,
+          tension: 0
+        },
+        {
+          label: 'Résultat cumulé',
+          data: resultLine,
+          borderColor: 'rgba(102, 126, 234, 1)',
+          backgroundColor: 'rgba(102, 126, 234, 0.10)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.2,
+          pointRadius: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top'
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return context.dataset.label + ': ' + Number(context.parsed.y).toFixed(2) + ' €';
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: 'day' }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: function(value) {
+              return Number(value).toFixed(0) + ' €';
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderProfitabilityChart() {
+  const canvas = document.getElementById('profitability-chart');
+  if (!canvas) return;
+  
+  const ctx = canvas.getContext('2d');
+  
+  // Destroy existing chart
+  if (profitabilityChart) {
+    profitabilityChart.destroy();
+  }
+  
+  // Prepare data from state.productStats (top 10 by revenue)
+  const products = (state.productStats || [])
+    .sort((a, b) => (parseFloat(b.revenue) || 0) - (parseFloat(a.revenue) || 0))
+    .slice(0, 10);
+  
+  const labels = products.map(p => p.name);
+  const revenues = products.map(p => parseFloat(p.revenue) || 0);
+  const costs = products.map(p => parseFloat(p.avgCost) || 0);
+  const margins = products.map(p => parseFloat(p.marginPercent) || 0);
+  
+  profitabilityChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Revenus (€)',
+          data: revenues,
+          backgroundColor: 'rgba(16, 185, 129, 0.7)',
+          borderColor: 'rgba(16, 185, 129, 1)',
+          borderWidth: 2
+        },
+        {
+          label: 'Marge (%)',
+          data: margins,
+          backgroundColor: 'rgba(102, 126, 234, 0.7)',
+          borderColor: 'rgba(102, 126, 234, 1)',
+          borderWidth: 2,
+          yAxisID: 'y1'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top'
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              if (context.datasetIndex === 0) {
+                return 'Revenus: ' + context.parsed.y.toFixed(2) + ' €';
+              } else {
+                return 'Marge: ' + context.parsed.y.toFixed(1) + ' %';
+              }
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          type: 'linear',
+          display: true,
+          position: 'left',
+          beginAtZero: true,
+          ticks: {
+            callback: function(value) {
+              return value.toFixed(0) + ' €';
+            }
+          },
+          title: {
+            display: true,
+            text: 'Revenus (€)'
+          }
+        },
+        y1: {
+          type: 'linear',
+          display: true,
+          position: 'right',
+          beginAtZero: true,
+          max: 100,
+          ticks: {
+            callback: function(value) {
+              return value.toFixed(0) + '%';
+            }
+          },
+          title: {
+            display: true,
+            text: 'Marge (%)'
+          },
+          grid: {
+            drawOnChartArea: false
+          }
+        }
+      }
+    }
+  });
 }
 
 function renderSettings() {
@@ -140,14 +467,89 @@ function renderSettings() {
       <td>${p.name}</td>
       <td>${formatEuro(p.price)}</td>
       <td>${p.stock}</td>
+      <td id="cost-${p.id}">...</td>
+      <td id="margin-${p.id}">...</td>
       <td>
+        <button data-type="prod-materials" data-id="${p.id}" class="primary" style="padding:6px 10px">🧱 Composition</button>
         <button data-type="prod-edit" data-id="${p.id}">✏️</button>
         <button data-type="prod-del" data-id="${p.id}">🗑️</button>
         <button data-type="prod-config-roles" data-id="${p.id}" style="margin-left:6px">Configurer rôles & parts</button>
       </td>
     `;
     tbodyProd.appendChild(tr);
+    // Calculate cost asynchronously
+    calculateProductCostAsync(p.id);
   });
+
+  // Matières premières (onglet matières premières)
+  const tbodyMat = document.querySelector('#table-raw-materials tbody');
+  if (tbodyMat) {
+    tbodyMat.innerHTML = '';
+    (state.rawMaterials || []).forEach(m => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${m.id}</td>
+        <td>${m.name}</td>
+        <td>${m.unit}</td>
+        <td>${formatEuro(m.unit_cost)}</td>
+        <td>${m.current_stock.toFixed(2)} ${m.unit}</td>
+        <td>
+          <button data-type="raw-mat-edit" data-id="${m.id}">✏️</button>
+          <button data-type="raw-mat-del" data-id="${m.id}">🗑️</button>
+        </td>
+      `;
+      tbodyMat.appendChild(tr);
+    });
+  }
+
+  // Achats de matières premières
+  const tbodyRawPurchases = document.querySelector('#table-raw-purchases tbody');
+  if (tbodyRawPurchases) {
+    tbodyRawPurchases.innerHTML = '';
+    (state.rawMaterialPurchases || []).slice(0, 10).forEach(p => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${p.date}</td>
+        <td>${p.material_name || ''}</td>
+        <td>${p.supplier_name || ''}</td>
+        <td>${p.company_name || ''}</td>
+        <td>${p.quantity} ${p.unit || ''}</td>
+        <td>${formatEuro(p.unit_cost)}</td>
+        <td>${formatEuro(p.total_cost)}</td>
+      `;
+      tbodyRawPurchases.appendChild(tr);
+    });
+  }
+
+  // Populate selects
+  const rawPurchaseMaterial = document.getElementById('raw-purchase-material');
+  const rawPurchaseCompany = document.getElementById('raw-purchase-company');
+  const rawPurchaseDate = document.getElementById('raw-purchase-date');
+  
+  // Set date to today if empty
+  if (rawPurchaseDate && !rawPurchaseDate.value) {
+    rawPurchaseDate.value = new Date().toISOString().slice(0, 10);
+  }
+  
+  if (rawPurchaseMaterial) {
+    rawPurchaseMaterial.innerHTML = '';
+    (state.rawMaterials || []).forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = `${m.name} (${m.unit})`;
+      rawPurchaseMaterial.appendChild(opt);
+    });
+  }
+  
+  if (rawPurchaseCompany) {
+    rawPurchaseCompany.innerHTML = '<option value="">-- Sélectionner --</option>';
+    (state.companies || []).forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.name;
+      rawPurchaseCompany.appendChild(opt);
+    });
+  }
 
   // Sociétés (onglet sociétés)
   const tbodyComp = document.querySelector('#table-companies tbody');
@@ -159,6 +561,7 @@ function renderSettings() {
         <td>${c.id}</td>
         <td>${c.code}</td>
         <td>${c.name}</td>
+        <td>${c.email || ''}</td>
         <td>
           <button data-type="company-edit" data-id="${c.id}">✏️</button>
           <button data-type="company-del" data-id="${c.id}">🗑️</button>
@@ -279,121 +682,183 @@ function renderInvoices() {
 
   refreshLineSelects();
 
-  // Table factures
-  const tbody = document.querySelector('#table-invoices tbody');
-  tbody.innerHTML = '';
+  // Liste factures (nouveau design en cartes)
+  const invoicesList = document.getElementById('invoices-list');
+  if (!invoicesList) return;
+  
+  invoicesList.innerHTML = '';
   const filterVal = (document.getElementById('invoice-company-filter') && document.getElementById('invoice-company-filter').value) || 'all';
+  
   state.invoices.forEach(inv => {
     if (filterVal !== 'all') {
       const fid = parseInt(filterVal, 10);
-      if (inv.company_id !== fid) return; // skip invoices not matching selected company
+      if (inv.company_id !== fid) return;
     }
-    const tr = document.createElement('tr');
-    const statusBadge = inv.due <= 0.001
-      ? '<span class="badge badge-ok">Payée</span>'
-      : '<span class="badge badge-warn">En cours</span>';
+
+    // Statut paiement
+    let paymentBadge = '';
+    if (inv.due <= 0.001) {
+      paymentBadge = '<span class="badge badge-ok">✓ Payée</span>';
+    } else if (inv.paid > 0) {
+      paymentBadge = `<span class="badge" style="background:#f59e0b;color:white">Partiel ${formatEuro(inv.paid)}/${formatEuro(inv.total)}</span>`;
+    } else {
+      paymentBadge = '<span class="badge" style="background:#94a3b8;color:white">En attente</span>';
+    }
 
     // URSSAF info
     const urssafAmount = inv.urssaf_amount || 0;
-    const urssafPaid = inv.urssaf_paid || 0;
-    const urssafDue = inv.urssaf_due || 0;
-    const urssafDeclared = inv.urssaf_declared_date ? `Déclaré (${inv.urssaf_declared_date})` : 'Non déclaré';
+    const urssafDeclared = inv.urssaf_declared_date || '';
+    const urssafPaidDate = inv.urssaf_paid_date || '';
+    
+    const urssafDeclaredBadge = urssafDeclared 
+      ? `<span class="badge badge-ok">✓ Déclaré le ${urssafDeclared}</span>`
+      : '<span class="badge" style="background:#94a3b8;color:white">Non déclaré</span>';
+    
+    const urssafPaidBadge = urssafPaidDate
+      ? `<span class="badge badge-ok">✓ Payé le ${urssafPaidDate}</span>`
+      : '<span class="badge" style="background:#f59e0b;color:white">Non payé</span>';
 
-    tr.innerHTML = `
-      <td>${inv.id}</td>
-      <td>${inv.company_name || ''}</td>
-      <td>${inv.date}</td>
-      <td>${inv.customer_name}</td>
-      <td>${formatEuro(inv.total)}</td>
-      <td>${formatEuro(inv.paid)}</td>
-      <td>${formatEuro(inv.due)} ${statusBadge}</td>
-      <td>
-        <div style="font-size:12px">${formatEuro(urssafAmount)}</div>
-        <div style="font-size:11px;color:#666">${urssafDeclared}</div>
-        <div style="margin-top:6px">
-          <input type="date" data-type="urssaf-declare-date" data-id="${inv.id}" style="width:140px;" />
-          <button data-type="urssaf-declare-btn" data-id="${inv.id}">Marquer déclaré</button>
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.display = 'grid';
+    card.style.gridTemplateColumns = '2fr 2fr 3fr 1.5fr';
+    card.style.gap = '16px';
+    card.style.alignItems = 'start';
+    card.style.padding = '16px';
+    
+    card.innerHTML = `
+      <div>
+        <div style="font-weight:600;font-size:15px;margin-bottom:4px">Facture #${inv.id}</div>
+        <div style="color:#64748b;font-size:13px">${inv.date}</div>
+        <div style="margin-top:8px;font-size:14px">${inv.customer_name}</div>
+        <div style="color:#64748b;font-size:12px">${inv.company_name || ''}</div>
+        <div style="margin-top:8px;font-weight:600;font-size:16px;color:#059669">${formatEuro(inv.total)}</div>
+      </div>
+      
+      <div>
+        <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:#64748b">STATUT PAIEMENT</div>
+        <div style="margin-bottom:8px">${paymentBadge}</div>
+        ${inv.due > 0.001 ? `
+          <button data-type="inv-pay-btn" data-id="${inv.id}" class="primary" style="padding:8px 12px;font-size:13px">
+            💰 Payer
+          </button>
+        ` : ''}
+      </div>
+      
+      <div>
+        <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:#64748b">URSSAF ${formatEuro(urssafAmount)}</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div>${urssafDeclaredBadge}</div>
+          <div>${urssafPaidBadge}</div>
         </div>
-        <div style="margin-top:6px">
-          <input type="number" min="0" step="0.01" placeholder="Paiement URSSAF" data-type="urssaf-pay-amount" data-id="${inv.id}" style="width:110px;" />
-          <button data-type="urssaf-pay-btn" data-id="${inv.id}">Payer</button>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          ${!urssafDeclared ? `
+            <button data-type="urssaf-declare-btn" data-id="${inv.id}" style="padding:6px 10px;font-size:12px">
+              📋 Déclarer
+            </button>
+          ` : ''}
+          ${urssafDeclared && !urssafPaidDate ? `
+            <button data-type="urssaf-pay-btn" data-id="${inv.id}" style="padding:6px 10px;font-size:12px">
+              💶 Payer URSSAF
+            </button>
+          ` : ''}
         </div>
-        <div style="font-size:11px;color:#666;margin-top:6px">Payé: ${formatEuro(urssafPaid)} • Restant: ${formatEuro(urssafDue)}</div>
-      </td>
-      <td>
-        <input type="number" min="0" step="0.01"
-               placeholder="Montant"
-               data-type="inv-pay-amount" data-id="${inv.id}" style="width:80px;"/>
-        <button data-type="inv-pay-btn" data-id="${inv.id}">OK</button>
-      </td>
-      <td>
-        <button data-type="inv-edit" data-id="${inv.id}">✏️ Modifier</button>
-        <button data-type="inv-del" data-id="${inv.id}">🗑️ Supprimer</button>
-      </td>
+      </div>
+      
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button data-type="inv-edit" data-id="${inv.id}" style="padding:8px 12px;width:100%">
+          ✏️ Modifier
+        </button>
+        <button data-type="inv-del" data-id="${inv.id}" style="padding:8px 12px;width:100%;background:#ef4444;color:white;border:none;border-radius:4px;cursor:pointer">
+          🗑️ Supprimer
+        </button>
+      </div>
     `;
-    tbody.appendChild(tr);
+    
+    invoicesList.appendChild(card);
   });
 }
 
 function renderPurchases() {
   // Selects
-  const selSup = document.getElementById('purchase-supplier');
-  const selProd = document.getElementById('purchase-product');
+  const selMat = document.getElementById('purchase-material');
   const selComp = document.getElementById('purchase-company');
-  selSup.innerHTML = '';
-  selProd.innerHTML = '';
+  const dateInput = document.getElementById('purchase-date');
+  
+  if (selMat) selMat.innerHTML = '';
   if (selComp) selComp.innerHTML = '';
+  
+  // Set date to today if empty
+  if (dateInput && !dateInput.value) {
+    dateInput.value = new Date().toISOString().slice(0, 10);
+  }
 
-  state.suppliers.forEach(s => {
-    const opt = document.createElement('option');
-    opt.value = s.id;
-    opt.textContent = s.name;
-    selSup.appendChild(opt);
-  });
+  // Populate materials
+  if (selMat) {
+    (state.rawMaterials || []).forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = `${m.name} (${m.unit})`;
+      selMat.appendChild(opt);
+    });
+    
+    // Auto-update unit cost when material is selected
+    selMat.addEventListener('change', () => {
+      const materialId = parseInt(selMat.value, 10);
+      const material = (state.rawMaterials || []).find(m => m.id === materialId);
+      const unitCostInput = document.getElementById('purchase-unit-cost');
+      if (material && unitCostInput) {
+        unitCostInput.value = material.unit_cost || 0;
+      }
+    });
+    
+    // Trigger initial update if a material is selected
+    if (selMat.value) {
+      const materialId = parseInt(selMat.value, 10);
+      const material = (state.rawMaterials || []).find(m => m.id === materialId);
+      const unitCostInput = document.getElementById('purchase-unit-cost');
+      if (material && unitCostInput) {
+        unitCostInput.value = material.unit_cost || 0;
+      }
+    }
+  }
 
-  state.products.forEach(p => {
-    const opt = document.createElement('option');
-    opt.value = p.id;
-    opt.textContent = p.name;
-    selProd.appendChild(opt);
-  });
+  // Populate companies
   if (selComp) {
     (state.companies || []).forEach(c => {
-      const opt = document.createElement('option'); opt.value = c.id; opt.textContent = c.name; selComp.appendChild(opt);
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.name;
+      selComp.appendChild(opt);
     });
   }
 
-  // Table achats
+  // Table achats - use rawMaterialPurchases instead
   const tbody = document.querySelector('#table-purchases tbody');
   tbody.innerHTML = '';
-  state.purchases.forEach(pu => {
-    // apply global company filter
-    const filterId = (currentCompanyFilter && currentCompanyFilter !== 'all') ? parseInt(currentCompanyFilter, 10) : null;
-    if (filterId && pu.company_id !== filterId) return;
-    const statusBadge = pu.due <= 0.001
-      ? '<span class="badge badge-ok">Payé</span>'
-      : '<span class="badge badge-warn">À payer</span>';
-
+  (state.rawMaterialPurchases || []).forEach(pu => {
+    const isPaid = pu.paid_date ? '✅ Payé' : '❌ Non payé';
+    const isDelivered = pu.delivery_date ? `✅ ${pu.delivery_date}` : '⏳ En attente';
+    
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${pu.id}</td>
-      <td>${((state.companies||[]).find(c=>c.id===pu.company_id)||{}).name||''}</td>
+      <td>${pu.company_name || ''}</td>
       <td>${pu.date}</td>
-      <td>${pu.supplier_name}</td>
-      <td>${pu.product_name}</td>
-      <td>${pu.qty}</td>
+      <td>${pu.material_name || ''}</td>
+      <td>${pu.quantity} ${pu.unit || ''}</td>
+      <td>${formatEuro(pu.unit_cost)}</td>
       <td>${formatEuro(pu.total_cost)}</td>
-      <td>${formatEuro(pu.paid)}</td>
-      <td>${formatEuro(pu.due)} ${statusBadge}</td>
       <td>
-        <input type="number" min="0" step="0.01"
-               placeholder="Montant"
-               data-type="pur-pay-amount" data-id="${pu.id}" style="width:80px;"/>
-        <button data-type="pur-pay-btn" data-id="${pu.id}">OK</button>
+        <div style="font-size:12px">${isPaid}</div>
+        <div style="font-size:11px;color:#666">${pu.paid_date || ''}</div>
       </td>
       <td>
-        <button data-type="pur-edit" data-id="${pu.id}">✏️ Modifier</button>
-        <button data-type="pur-del" data-id="${pu.id}">🗑️ Supprimer</button>
+        <div style="font-size:12px">${isDelivered}</div>
+      </td>
+      <td>
+        <button data-type="raw-pur-edit" data-id="${pu.id}">✏️</button>
+        <button data-type="raw-pur-del" data-id="${pu.id}">🗑️</button>
       </td>
     `;
     tbody.appendChild(tr);
@@ -410,7 +875,177 @@ function renderAll() {
 async function refresh() {
   const data = await window.api.init();
   state = data;
+  state.rawMaterials = await window.api.getRawMaterials();
+  state.rawMaterialPurchases = await window.api.getRawMaterialPurchases();
   renderAll();
+}
+
+async function calculateProductCostAsync(productId) {
+  try {
+    const result = await window.api.calculateProductCost(productId);
+    const costEl = document.getElementById(`cost-${productId}`);
+    const marginEl = document.getElementById(`margin-${productId}`);
+    const product = state.products.find(p => p.id === productId);
+    
+    if (costEl && result) {
+      costEl.textContent = formatEuro(result.totalCost);
+      costEl.style.fontWeight = '600';
+      costEl.style.color = '#10b981';
+    }
+    
+    if (marginEl && product && result) {
+      const margin = product.price - result.totalCost;
+      const marginPercent = product.price > 0 ? (margin / product.price * 100) : 0;
+      marginEl.innerHTML = `${formatEuro(margin)}<br/><span style="font-size:0.85rem;color:var(--muted)">(${marginPercent.toFixed(1)}%)</span>`;
+      marginEl.style.fontWeight = '600';
+      marginEl.style.color = margin > 0 ? '#10b981' : '#ef4444';
+    }
+  } catch (error) {
+    console.error('Calculate cost error:', error);
+  }
+}
+
+async function openProductMaterialsModal(productId) {
+  const product = state.products.find(p => p.id === productId);
+  if (!product) return;
+  
+  const modal = document.getElementById('product-materials-modal');
+  const title = document.getElementById('product-materials-title');
+  const body = document.getElementById('product-materials-body');
+  const calcCost = document.getElementById('calculated-cost');
+  
+  title.textContent = `🧱 Composition de "${product.name}"`;
+  body.innerHTML = '';
+  
+  // Load existing materials
+  const materials = await window.api.getProductMaterials(productId);
+  
+  if (materials.length === 0) {
+    addMaterialRow(body, null);
+  } else {
+    materials.forEach(m => addMaterialRow(body, m));
+  }
+  
+  // Calculate cost
+  updateCalculatedCost(body, calcCost);
+  
+  // Add material button
+  const btnAdd = document.getElementById('btn-add-material-row');
+  btnAdd.onclick = () => {
+    addMaterialRow(body, null);
+    updateCalculatedCost(body, calcCost);
+  };
+  
+  // Cancel button
+  document.getElementById('product-materials-cancel').onclick = () => {
+    modal.style.display = 'none';
+  };
+  
+  // Save button
+  document.getElementById('product-materials-save').onclick = async () => {
+    const rows = body.querySelectorAll('.material-row');
+    const materials = [];
+    
+    rows.forEach(row => {
+      const matId = parseInt(row.querySelector('.mat-select').value);
+      const qty = parseFloat(row.querySelector('.mat-qty').value || 0);
+      if (matId && qty > 0) {
+        materials.push({ raw_material_id: matId, quantity: qty });
+      }
+    });
+    
+    await window.api.setProductMaterials(productId, materials);
+    showToast('Composition enregistrée avec succès', 'success');
+    modal.style.display = 'none';
+    await refresh();
+  };
+  
+  modal.style.display = 'flex';
+}
+
+function addMaterialRow(container, material) {
+  const row = document.createElement('div');
+  row.className = 'material-row';
+  row.style.display = 'grid';
+  row.style.gridTemplateColumns = '2fr 1fr 80px';
+  row.style.gap = '8px';
+  row.style.marginBottom = '8px';
+  row.style.alignItems = 'center';
+  
+  const select = document.createElement('select');
+  select.className = 'mat-select';
+  select.style.padding = '8px';
+  select.style.border = '1px solid var(--border)';
+  select.style.borderRadius = '8px';
+  
+  const defaultOpt = document.createElement('option');
+  defaultOpt.value = '';
+  defaultOpt.textContent = '-- Sélectionner une matière --';
+  select.appendChild(defaultOpt);
+  
+  state.rawMaterials.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = `${m.name} (${formatEuro(m.unit_cost)}/${m.unit})`;
+    if (material && material.raw_material_id === m.id) opt.selected = true;
+    select.appendChild(opt);
+  });
+  
+  const qtyInput = document.createElement('input');
+  qtyInput.type = 'number';
+  qtyInput.className = 'mat-qty';
+  qtyInput.min = '0';
+  qtyInput.step = '0.01';
+  qtyInput.value = material ? material.quantity : '1';
+  qtyInput.style.padding = '8px';
+  qtyInput.style.border = '1px solid var(--border)';
+  qtyInput.style.borderRadius = '8px';
+  
+  const removeBtn = document.createElement('button');
+  removeBtn.textContent = '🗑️';
+  removeBtn.style.padding = '8px';
+  removeBtn.onclick = () => {
+    row.remove();
+    const calcCost = document.getElementById('calculated-cost');
+    const body = document.getElementById('product-materials-body');
+    updateCalculatedCost(body, calcCost);
+  };
+  
+  // Update cost when changed
+  select.onchange = () => {
+    const calcCost = document.getElementById('calculated-cost');
+    const body = document.getElementById('product-materials-body');
+    updateCalculatedCost(body, calcCost);
+  };
+  qtyInput.oninput = () => {
+    const calcCost = document.getElementById('calculated-cost');
+    const body = document.getElementById('product-materials-body');
+    updateCalculatedCost(body, calcCost);
+  };
+  
+  row.appendChild(select);
+  row.appendChild(qtyInput);
+  row.appendChild(removeBtn);
+  container.appendChild(row);
+}
+
+function updateCalculatedCost(body, costElement) {
+  const rows = body.querySelectorAll('.material-row');
+  let total = 0;
+  
+  rows.forEach(row => {
+    const matId = parseInt(row.querySelector('.mat-select').value);
+    const qty = parseFloat(row.querySelector('.mat-qty').value || 0);
+    
+    if (matId && qty > 0) {
+      const material = state.rawMaterials.find(m => m.id === matId);
+      if (material) {
+        total += qty * material.unit_cost;
+      }
+    }
+  });
+  
+  costElement.textContent = formatEuro(total);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -431,6 +1066,111 @@ document.addEventListener('DOMContentLoaded', () => {
   loadSmtpSettings();
   loadCompanySettings();
 
+  // === Handlers des modales ===
+  
+  // Modal URSSAF Déclaration
+  const urssafDeclareModal = document.getElementById('urssaf-declare-modal');
+  const urssafDeclareCancel = document.getElementById('urssaf-declare-cancel');
+  const urssafDeclareConfirm = document.getElementById('urssaf-declare-confirm');
+  
+  if (urssafDeclareCancel) {
+    urssafDeclareCancel.addEventListener('click', () => {
+      urssafDeclareModal.style.display = 'none';
+    });
+  }
+  
+  if (urssafDeclareConfirm) {
+    urssafDeclareConfirm.addEventListener('click', async () => {
+      const invoiceId = parseInt(urssafDeclareModal.dataset.invoiceId);
+      const date = document.getElementById('urssaf-declare-date-input').value || new Date().toISOString().slice(0,10);
+      
+      await window.api.markUrssafDeclared({ invoiceId, date });
+      urssafDeclareModal.style.display = 'none';
+      await refresh();
+      showToast('URSSAF déclaré', 'success');
+    });
+  }
+
+  // Modal URSSAF Paiement
+  const urssafPayModal = document.getElementById('urssaf-pay-modal');
+  const urssafPayCancel = document.getElementById('urssaf-pay-cancel');
+  const urssafPayConfirm = document.getElementById('urssaf-pay-confirm');
+  
+  if (urssafPayCancel) {
+    urssafPayCancel.addEventListener('click', () => {
+      urssafPayModal.style.display = 'none';
+    });
+  }
+  
+  if (urssafPayConfirm) {
+    urssafPayConfirm.addEventListener('click', async () => {
+      const invoiceId = parseInt(urssafPayModal.dataset.invoiceId);
+      const date = document.getElementById('urssaf-pay-date-input').value || new Date().toISOString().slice(0,10);
+      const amount = parseFloat(document.getElementById('urssaf-pay-amount-input').value || '0');
+      
+      if (amount <= 0) {
+        showToast('Montant invalide', 'warning');
+        return;
+      }
+      
+      await window.api.addUrssafPayment({ invoiceId, amount, date });
+      urssafPayModal.style.display = 'none';
+      await refresh();
+      showToast('Paiement URSSAF enregistré', 'success');
+    });
+  }
+
+  // Modal Paiement Facture
+  const invoicePayModal = document.getElementById('invoice-pay-modal');
+  const invoicePayCancel = document.getElementById('invoice-pay-cancel');
+  const invoicePayConfirm = document.getElementById('invoice-pay-confirm');
+  const paymentTypeTotal = document.getElementById('payment-type-total');
+  const paymentTypePartial = document.getElementById('payment-type-partial');
+  const partialAmountContainer = document.getElementById('partial-amount-container');
+  
+  if (paymentTypeTotal) {
+    paymentTypeTotal.addEventListener('change', () => {
+      partialAmountContainer.style.display = 'none';
+    });
+  }
+  
+  if (paymentTypePartial) {
+    paymentTypePartial.addEventListener('change', () => {
+      partialAmountContainer.style.display = 'block';
+    });
+  }
+  
+  if (invoicePayCancel) {
+    invoicePayCancel.addEventListener('click', () => {
+      invoicePayModal.style.display = 'none';
+    });
+  }
+  
+  if (invoicePayConfirm) {
+    invoicePayConfirm.addEventListener('click', async () => {
+      const invoiceId = parseInt(invoicePayModal.dataset.invoiceId);
+      const date = document.getElementById('invoice-pay-date-input').value || new Date().toISOString().slice(0,10);
+      const isTotal = document.getElementById('payment-type-total').checked;
+      
+      let amount;
+      if (isTotal) {
+        amount = parseFloat(invoicePayModal.dataset.dueAmount);
+      } else {
+        amount = parseFloat(document.getElementById('invoice-pay-amount-input').value || '0');
+      }
+      
+      if (amount <= 0) {
+        showToast('Montant invalide', 'warning');
+        return;
+      }
+      
+      await window.api.addInvoicePayment({ invoiceId, amount, date });
+      invoicePayModal.style.display = 'none';
+      await refresh();
+      showToast('Paiement enregistré', 'success');
+    });
+  }
+
   // Sauvegarder company
   document.getElementById('btn-save-company').addEventListener('click', async () => {
     const name = document.getElementById('company-name').value.trim();
@@ -441,7 +1181,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const company = { name, address, siret, legal, logo };
     await window.api.setSetting('company', company);
-    alert('Informations société enregistrées');
+    showToast('Informations société enregistrées', 'success');
   });
 
   // Parcourir / uploader logo
@@ -451,7 +1191,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const result = await window.api.selectLogo();
       if (!result) return; // cancelled or error
       document.getElementById('company-logo').value = result;
-      alert('Logo copié dans le dossier de l\'application : ' + result + '. Cliquez sur "Enregistrer société" pour sauvegarder.');
+      showToast('Logo copié : ' + result + '. Cliquez sur "Enregistrer société"', 'success');
     });
   }
 
@@ -513,7 +1253,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const price = parseFloat(document.getElementById('product-price').value || '0');
     const stock = parseInt(document.getElementById('product-stock').value || '0', 10);
 
-    if (!name) return alert('Nom du produit obligatoire');
+    if (!name) return showToast('Nom du produit obligatoire', 'warning');
     await window.api.addProduct({ name, price, stock });
     document.getElementById('product-name').value = '';
     await refresh();
@@ -525,15 +1265,17 @@ document.addEventListener('DOMContentLoaded', () => {
     btnAddCompany.addEventListener('click', async () => {
       const code = (document.getElementById('company-code-new').value || '').trim();
       const name = (document.getElementById('company-name-new').value || '').trim();
-      if (!code || !name) return alert('Code et nom requis');
+      const email = (document.getElementById('company-email-new').value || '').trim();
+      if (!code || !name) return showToast('Code et nom requis', 'warning');
       try {
-        await window.api.addCompany({ code, name });
+        await window.api.addCompany({ code, name, email });
         document.getElementById('company-code-new').value = '';
         document.getElementById('company-name-new').value = '';
+        document.getElementById('company-email-new').value = '';
         await refresh();
       } catch (err) {
         console.error('addCompany error', err);
-        alert('Erreur création société: ' + (err && err.message ? err.message : err));
+        showToast('Erreur création société: ' + (err && err.message ? err.message : err), 'error');
       }
     });
   }
@@ -542,21 +1284,76 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-add-customer').addEventListener('click', async () => {
     const name = document.getElementById('customer-name').value.trim();
     const email = document.getElementById('customer-email').value.trim();
-    if (!name) return alert('Nom du client obligatoire');
+    if (!name) return showToast('Nom du client obligatoire', 'warning');
     await window.api.addCustomer({ name, email });
     document.getElementById('customer-name').value = '';
     document.getElementById('customer-email').value = '';
+    showToast('Client ajouté avec succès', 'success');
     await refresh();
   });
 
   // Ajout fournisseur
   document.getElementById('btn-add-supplier').addEventListener('click', async () => {
     const name = document.getElementById('supplier-name').value.trim();
-    if (!name) return alert('Nom du fournisseur obligatoire');
+    if (!name) return showToast('Nom du fournisseur obligatoire', 'warning');
     await window.api.addSupplier({ name });
     document.getElementById('supplier-name').value = '';
     await refresh();
   });
+
+  // Ajout matière première
+  const btnAddRawMaterial = document.getElementById('btn-add-raw-material');
+  if (btnAddRawMaterial) {
+    btnAddRawMaterial.addEventListener('click', async () => {
+      const name = document.getElementById('raw-material-name').value.trim();
+      const unit = document.getElementById('raw-material-unit').value.trim();
+      const unit_cost = parseFloat(document.getElementById('raw-material-cost').value || '0');
+      const current_stock = parseFloat(document.getElementById('raw-material-stock').value || '0');
+      
+      if (!name) return showToast('Nom de la matière obligatoire', 'warning');
+      
+      await window.api.addRawMaterial({ name, unit, unit_cost, current_stock });
+      document.getElementById('raw-material-name').value = '';
+      document.getElementById('raw-material-unit').value = 'unité';
+      document.getElementById('raw-material-cost').value = '0';
+      document.getElementById('raw-material-stock').value = '0';
+      showToast('Matière première ajoutée avec succès', 'success');
+      await refresh();
+    });
+  }
+
+  // Ajout achat matière première
+  const btnAddRawPurchase = document.getElementById('btn-add-raw-purchase');
+  if (btnAddRawPurchase) {
+    btnAddRawPurchase.addEventListener('click', async () => {
+      const date = document.getElementById('raw-purchase-date').value || new Date().toISOString().slice(0, 10);
+      const raw_material_id = parseInt(document.getElementById('raw-purchase-material').value);
+      const company_id = document.getElementById('raw-purchase-company').value ? 
+        parseInt(document.getElementById('raw-purchase-company').value) : null;
+      const quantity = parseFloat(document.getElementById('raw-purchase-qty').value || '0');
+      const unit_cost = parseFloat(document.getElementById('raw-purchase-cost').value || '0');
+      
+      if (!raw_material_id || quantity <= 0 || unit_cost < 0) {
+        return showToast('Matière, quantité et coût obligatoires', 'warning');
+      }
+      
+      await window.api.addRawMaterialPurchase({
+        date,
+        raw_material_id,
+        supplier_id: null,
+        company_id,
+        quantity,
+        unit_cost,
+        paid: 0
+      });
+      
+      document.getElementById('raw-purchase-date').value = '';
+      document.getElementById('raw-purchase-qty').value = '1';
+      document.getElementById('raw-purchase-cost').value = '0';
+      showToast('Achat de matière première enregistré', 'success');
+      await refresh();
+    });
+  }
 
   // Replace direct creation: open an invoice-edit modal to edit the whole invoice before creating
   const btnCreateInvoice = document.getElementById('btn-create-invoice');
@@ -570,26 +1367,91 @@ document.addEventListener('DOMContentLoaded', () => {
     const editCancel = document.getElementById('invoice-edit-cancel');
 
     // opener function (has access to editLinesContainer and helpers)
-    async function openInvoiceEditModal() {
+    window.openInvoiceEditModal = async function(invoice, payments, lines) {
       // populate customers select
       const custSel = document.getElementById('invoice-edit-customer');
       custSel.innerHTML = '';
       (state.customers || []).forEach(c => { const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; custSel.appendChild(o); });
 
-      // clear lines and add a single blank line
-      editLinesContainer.innerHTML = '';
-      addEditLine();
+      // If editing existing invoice, populate data
+      if (invoice) {
+        custSel.value = invoice.customer_id || custSel.options[0]?.value;
+        const dateInput = document.getElementById('invoice-edit-date');
+        if (dateInput) dateInput.value = invoice.date;
+        
+        // Update modal title and button text
+        const modalTitle = document.getElementById('invoice-edit-title');
+        if (modalTitle) modalTitle.textContent = 'Modifier la facture';
+        const saveButton = document.getElementById('invoice-edit-save');
+        if (saveButton) saveButton.textContent = 'Enregistrer les modifications';
+        
+        // Store invoice ID for saving
+        invoiceEditModal.dataset.invoiceId = invoice.id;
+        
+        // Populate existing invoice lines
+        editLinesContainer.innerHTML = '';
+        if (lines && lines.length > 0) {
+          for (const line of lines) {
+            await addEditLine(line.product_id, line.qty, line.note);
+          }
+        } else {
+          addEditLine();
+        }
+        
+        // Populate payments
+        const paymentsContainer = document.getElementById('invoice-edit-payments');
+        if (paymentsContainer) {
+          paymentsContainer.innerHTML = '';
+          (payments || []).forEach(p => {
+            const row = document.createElement('div');
+            row.style.display = 'grid';
+            row.style.gridTemplateColumns = '1fr 1fr auto';
+            row.style.gap = '8px';
+            row.style.marginBottom = '6px';
+            row.innerHTML = `
+              <input type="date" class="payment-date" value="${p.date}" style="padding:6px" />
+              <input type="number" class="payment-amount" value="${p.amount}" min="0" step="0.01" placeholder="Montant" style="padding:6px" />
+              <button class="remove-payment" style="padding:6px 10px">✖️</button>
+            `;
+            row.querySelector('.remove-payment').addEventListener('click', () => row.remove());
+            paymentsContainer.appendChild(row);
+          });
+        }
+      } else {
+        // set date to today
+        const dateInput = document.getElementById('invoice-edit-date');
+        if (dateInput && !dateInput.value) {
+          dateInput.value = new Date().toISOString().slice(0, 10);
+        }
 
-      // reset send-email checkbox
-      const se = document.getElementById('invoice-edit-send-email'); if (se) se.checked = false;
+        // clear lines and add a single blank line
+        editLinesContainer.innerHTML = '';
+        addEditLine();
+
+        // clear payments container
+        const paymentsContainer = document.getElementById('invoice-edit-payments');
+        if (paymentsContainer) paymentsContainer.innerHTML = '';
+
+        // Reset modal title and button text for creation
+        const modalTitle = document.getElementById('invoice-edit-title');
+        if (modalTitle) modalTitle.textContent = 'Créer la facture';
+        const saveButton = document.getElementById('invoice-edit-save');
+        if (saveButton) saveButton.textContent = 'Créer la facture';
+
+        // reset send-email checkbox
+        const se = document.getElementById('invoice-edit-send-email'); if (se) se.checked = false;
+        
+        // Clear invoice ID
+        delete invoiceEditModal.dataset.invoiceId;
+      }
 
       invoiceEditModal.style.display = 'flex';
-    }
+    };
 
     // wire both buttons to open the modal
-    if (btnCreateInvoice) btnCreateInvoice.addEventListener('click', async () => { await openInvoiceEditModal(); });
+    if (btnCreateInvoice) btnCreateInvoice.addEventListener('click', async () => { await window.openInvoiceEditModal(); });
     const btnNewInvoice = document.getElementById('btn-new-invoice');
-    if (btnNewInvoice) btnNewInvoice.addEventListener('click', async () => { await openInvoiceEditModal(); });
+    if (btnNewInvoice) btnNewInvoice.addEventListener('click', async () => { await window.openInvoiceEditModal(); });
 
     function createProductSelect(selectedId) {
       const sel = document.createElement('select');
@@ -641,11 +1503,11 @@ document.addEventListener('DOMContentLoaded', () => {
       row.appendChild(roleArea);
     }
 
-    function addEditLine(initial) {
+    async function addEditLine(productId, quantity, noteText, initial) {
       const row = document.createElement('div'); row.className = 'invoice-edit-line'; row.style.display = 'grid'; row.style.gridTemplateColumns = '1fr 120px 1fr 140px'; row.style.gap = '8px'; row.style.alignItems = 'center';
-      const prodSel = createProductSelect(initial && initial.productId);
-      const qty = document.createElement('input'); qty.type = 'number'; qty.min = '0.01'; qty.step = '0.01'; qty.value = (initial && initial.qty) ? initial.qty : '1'; qty.className = 'invoice-edit-line-qty';
-      const note = document.createElement('input'); note.type = 'text'; note.placeholder = 'Note (optionnel)'; note.value = (initial && initial.note) ? initial.note : '';
+      const prodSel = createProductSelect(productId || (initial && initial.productId));
+      const qty = document.createElement('input'); qty.type = 'number'; qty.min = '0.01'; qty.step = '0.01'; qty.value = quantity || (initial && initial.qty) || '1'; qty.className = 'invoice-edit-line-qty';
+      const note = document.createElement('input'); note.type = 'text'; note.placeholder = 'Note (optionnel)'; note.value = noteText || (initial && initial.note) || '';
       const right = document.createElement('div'); right.style.display = 'flex'; right.style.gap = '6px';
       const btnRemove = document.createElement('button'); btnRemove.type = 'button'; btnRemove.textContent = 'Supprimer'; btnRemove.style.padding = '6px';
       btnRemove.addEventListener('click', () => { row.remove(); });
@@ -655,11 +1517,9 @@ document.addEventListener('DOMContentLoaded', () => {
       editLinesContainer.appendChild(row);
 
       // populate role area for this product if a product is selected
-      (async () => {
-        let existingAlloc = [];
-        if (initial && initial.allocations) existingAlloc = initial.allocations;
-        if (prodSel.value) await populateRoleAreaForRow(row, parseInt(prodSel.value, 10), existingAlloc);
-      })();
+      let existingAlloc = [];
+      if (initial && initial.allocations) existingAlloc = initial.allocations;
+      if (prodSel.value) await populateRoleAreaForRow(row, parseInt(prodSel.value, 10), existingAlloc);
 
       prodSel.addEventListener('change', async () => {
         if (!prodSel.value) {
@@ -684,15 +1544,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
     editAddLine.addEventListener('click', () => addEditLine());
 
+    // Add payment row button handler
+    const editAddPayment = document.getElementById('invoice-edit-add-payment');
+    if (editAddPayment) {
+      editAddPayment.addEventListener('click', () => {
+        const paymentsContainer = document.getElementById('invoice-edit-payments');
+        if (!paymentsContainer) return;
+        
+        const row = document.createElement('div');
+        row.style.display = 'grid';
+        row.style.gridTemplateColumns = '1fr 1fr auto';
+        row.style.gap = '8px';
+        row.style.marginBottom = '6px';
+        row.innerHTML = `
+          <input type="date" class="payment-date" value="${new Date().toISOString().slice(0,10)}" style="padding:6px" />
+          <input type="number" class="payment-amount" value="0" min="0" step="0.01" placeholder="Montant" style="padding:6px" />
+          <button class="remove-payment" style="padding:6px 10px">✖️</button>
+        `;
+        row.querySelector('.remove-payment').addEventListener('click', () => row.remove());
+        paymentsContainer.appendChild(row);
+      });
+    }
+
     editCancel.addEventListener('click', () => { invoiceEditModal.style.display = 'none'; });
 
     editSave.addEventListener('click', async () => {
       const customerId = parseInt(document.getElementById('invoice-edit-customer').value, 10);
+      const invoiceDate = document.getElementById('invoice-edit-date').value;
       const sendEmail = document.getElementById('invoice-edit-send-email').checked;
-      if (!customerId) return alert('Client requis');
+      if (!customerId) return showToast('Client requis', 'warning');
+      if (!invoiceDate) return showToast('Date requise', 'warning');
 
       const rows = Array.from(editLinesContainer.querySelectorAll('.invoice-edit-line'));
-      if (rows.length === 0) return alert('Ajoutez au moins une ligne');
+      if (rows.length === 0) return showToast('Ajoutez au moins une ligne', 'warning');
 
       const lines = [];
       for (const r of rows) {
@@ -723,18 +1607,61 @@ document.addEventListener('DOMContentLoaded', () => {
         lines.push(line);
       }
 
-      if (lines.length === 0) return alert('Ajoutez au moins une ligne valide (produit + quantité)');
+      if (lines.length === 0) return showToast('Ajoutez au moins une ligne valide (produit + quantité)', 'warning');
+
+      // If editing existing invoice, update it and its payments
+      const invoiceId = invoiceEditModal.dataset.invoiceId;
+      if (invoiceId) {
+        try {
+          // Collect payment data
+          const paymentsContainer = document.getElementById('invoice-edit-payments');
+          const paymentRows = paymentsContainer ? Array.from(paymentsContainer.querySelectorAll('div[style*="grid"]')) : [];
+          const payments = paymentRows.map(r => ({
+            date: r.querySelector('.payment-date')?.value || new Date().toISOString().slice(0,10),
+            amount: parseFloat(r.querySelector('.payment-amount')?.value || '0')
+          })).filter(p => p.amount > 0);
+
+          // Update invoice basic data (customer, date)
+          await window.api.updateInvoice({ id: parseInt(invoiceId, 10), customer_id: customerId, date: invoiceDate });
+          
+          // Update payments
+          await window.api.updateInvoicePayments({ invoiceId: parseInt(invoiceId, 10), payments });
+          
+          showToast('Facture mise à jour avec succès', 'success');
+          invoiceEditModal.style.display = 'none';
+          await refresh();
+          return;
+        } catch (err) {
+          console.error('update invoice error', err);
+          showToast('Erreur lors de la mise à jour: ' + (err?.message || err), 'error');
+          return;
+        }
+      }
 
       // determine whether any allocations are present
       const hasAlloc = lines.some(l => l.allocations && l.allocations.length);
       try {
         if (hasAlloc) {
-          await window.api.createByRole({ customerId, lines });
-          alert('Factures par société créées à partir des répartitions par rôle. (Envoi email non géré automatiquement)');
+          if (sendEmail) {
+            // store pending multi-company invoice and open email modal
+            window._pendingMultiInvoice = { customerId, lines, invoice_date: invoiceDate, isMultiCompany: true };
+            const emailModal = document.getElementById('email-modal');
+            const emailTo = document.getElementById('email-to');
+            const emailSubject = document.getElementById('email-subject');
+            const emailBody = document.getElementById('email-body');
+            const cust = state.customers.find(c => c.id === customerId) || {};
+            emailTo.value = cust.email || '';
+            emailSubject.value = `Facture(s) pour ${cust.name || ''}`;
+            emailBody.value = `Bonjour ${cust.name || ''},\n\nVeuillez trouver ci-joint vos factures.\n\nCordialement,\n${(document.getElementById('company-name') && document.getElementById('company-name').value) || ''}`;
+            emailModal.style.display = 'flex';
+          } else {
+            const result = await window.api.createByRole({ customerId, lines, invoice_date: invoiceDate });
+            showToast('Factures par société créées avec répartitions par rôle', 'success');
+          }
         } else {
           if (sendEmail) {
             // store pending invoice and open email modal for composition
-            window._pendingInvoice = { customerId, lines };
+            window._pendingInvoice = { customerId, lines, invoice_date: invoiceDate };
             const emailModal = document.getElementById('email-modal');
             const emailTo = document.getElementById('email-to');
             const emailSubject = document.getElementById('email-subject');
@@ -745,15 +1672,17 @@ document.addEventListener('DOMContentLoaded', () => {
             emailBody.value = `Bonjour ${cust.name || ''},\n\nVeuillez trouver ci-joint votre facture.\n\nCordialement,\n${(document.getElementById('company-name') && document.getElementById('company-name').value) || ''}`;
             emailModal.style.display = 'flex';
           } else {
-            await window.api.createInvoice({ customerId, lines });
-            alert('Facture créée (sans envoi d\'email).');
+            await window.api.createInvoice({ customerId, lines, invoice_date: invoiceDate });
+            showToast('Facture créée avec succès', 'success');
           }
         }
-        invoiceEditModal.style.display = 'none';
-        await refresh();
+        if (!sendEmail) {
+          invoiceEditModal.style.display = 'none';
+          await refresh();
+        }
       } catch (err) {
         console.error('create invoice error', err);
-        alert('Erreur lors de la création de la/les facture(s): ' + (err && err.message ? err.message : err));
+        showToast('Erreur lors de la création: ' + (err && err.message ? err.message : err), 'error');
       }
     });
   }
@@ -767,31 +1696,102 @@ document.addEventListener('DOMContentLoaded', () => {
     btnCancel.addEventListener('click', () => {
       emailModal.style.display = 'none';
       window._pendingInvoice = null;
+      window._pendingMultiInvoice = null;
+      const editModal = document.getElementById('invoice-edit-modal');
+      if (editModal) editModal.style.display = 'none';
     });
 
     btnSend.addEventListener('click', async () => {
       const to = document.getElementById('email-to').value.trim();
       const subject = document.getElementById('email-subject').value.trim();
       const text = document.getElementById('email-body').value || '';
+      
+      // Check for multi-company invoice first
+      const pendingMulti = window._pendingMultiInvoice;
       const pending = window._pendingInvoice;
-      if (!pending) return alert('Aucune facture en attente');
-      if (!to) return alert('Destinataire requis');
+      
+      if (!pendingMulti && !pending) return showToast('Aucune facture en attente', 'warning');
+      if (!to) return showToast('Destinataire requis', 'warning');
 
-      // call backend createAndSend with email content
-      const res = await window.api.createInvoiceAndSend({ customerId: pending.customerId, lines: pending.lines, sendEmail: true, to, subject, text });
-      if (res && res.error) {
-        alert('Erreur : ' + res.error);
-      } else {
-        if (res.mailResult) {
-          if (res.mailResult.ok) alert('Facture créée et email envoyé.');
-          else alert('Facture créée mais erreur envoi : ' + res.mailResult.error);
-        } else {
-          alert('Facture créée.');
+      try {
+        if (pendingMulti && pendingMulti.isMultiCompany) {
+          // Multi-company invoice with email
+          const res = await window.api.createByRole({ 
+            customerId: pendingMulti.customerId, 
+            lines: pendingMulti.lines, 
+            invoice_date: pendingMulti.invoice_date, 
+            sendEmail: true, 
+            to, 
+            subject, 
+            text 
+          });
+          
+          // Display results
+          if (res && res.mailResults && res.mailResults.length > 0) {
+            let successCount = 0;
+            let errorCount = 0;
+            let details = '';
+            
+            res.mailResults.forEach(r => {
+              if (r.ok) {
+                successCount++;
+                if (r.type === 'customer') {
+                  details += `✅ Client (${r.recipient})\n`;
+                } else if (r.type === 'company') {
+                  details += `✅ Société ${r.companyName} (${r.recipient})\n`;
+                }
+              } else {
+                errorCount++;
+                if (r.type === 'customer') {
+                  details += `❌ Client (${r.recipient}): ${r.error}\n`;
+                } else if (r.type === 'company') {
+                  details += `❌ Société ${r.companyName} (${r.recipient}): ${r.error}\n`;
+                }
+              }
+            });
+            
+            if (errorCount === 0) {
+              showToast(`Factures créées et ${successCount} email(s) envoyé(s) avec succès`, 'success');
+            } else {
+              showToast(`Factures créées. ${successCount} email(s) envoyé(s), ${errorCount} erreur(s).\n${details}`, 'warning');
+            }
+          } else {
+            showToast('Factures créées avec répartitions par rôle', 'success');
+          }
+        } else if (pending) {
+          // Single invoice with email
+          const res = await window.api.createInvoiceAndSend({ 
+            customerId: pending.customerId, 
+            lines: pending.lines, 
+            invoice_date: pending.invoice_date, 
+            sendEmail: true, 
+            to, 
+            subject, 
+            text 
+          });
+          
+          if (res && res.error) {
+            showToast('Erreur : ' + res.error, 'error');
+          } else {
+            if (res.mailResult) {
+              if (res.mailResult.ok) showToast('Facture créée et email envoyé', 'success');
+              else showToast('Facture créée mais erreur envoi : ' + res.mailResult.error, 'warning');
+            } else {
+              showToast('Facture créée', 'success');
+            }
+          }
         }
+        
+        emailModal.style.display = 'none';
+        const editModal = document.getElementById('invoice-edit-modal');
+        if (editModal) editModal.style.display = 'none';
+        window._pendingInvoice = null;
+        window._pendingMultiInvoice = null;
+        await refresh();
+      } catch (err) {
+        console.error('Email send error', err);
+        showToast('Erreur lors de l\'envoi: ' + (err && err.message ? err.message : err), 'error');
       }
-      emailModal.style.display = 'none';
-      window._pendingInvoice = null;
-      await refresh();
     });
   }
 
@@ -1160,17 +2160,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    if (target.dataset.type === 'inv-pay-btn') {
-      const id = parseInt(target.dataset.id, 10);
-      const input = document.querySelector(`input[data-type="inv-pay-amount"][data-id="${id}"]`);
-      const amount = parseFloat(input.value || '0');
-      if (amount <= 0) return alert('Montant invalide');
-      await window.api.addInvoicePayment({
-        invoiceId: id,
-        amount
-      });
-      await refresh();
-    }
+    // inv-pay-btn now handled by modal (see line ~2328)
 
     if (target.dataset.type === 'pur-pay-btn') {
       const id = parseInt(target.dataset.id, 10);
@@ -1255,36 +2245,18 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // Edit invoice (customer/date)
+    // Edit invoice (customer/date/payments)
     if (target.dataset.type === 'inv-edit') {
       const id = parseInt(target.dataset.id, 10);
-      const tr = target.closest('tr');
       const inv = state.invoices.find(i => i.id === id);
       if (!inv) return;
 
-      // Build customer select
-      const custSel = document.createElement('select');
-      state.customers.forEach(c => {
-        const opt = document.createElement('option'); opt.value = c.id; opt.textContent = c.name; if (c.name === inv.customer_name) opt.selected = true; custSel.appendChild(opt);
-      });
+      // Get existing payments and lines
+      const payments = await window.api.getInvoicePayments(id);
+      const lines = await window.api.getInvoiceLines(id);
 
-      tr.innerHTML = `
-        <td>${inv.id}</td>
-        <td><input type="date" data-edit="inv-date" value="${inv.date}" /></td>
-        <td></td>
-        <td>${formatEuro(inv.total)}</td>
-        <td>${formatEuro(inv.paid)}</td>
-        <td>${formatEuro(inv.due)}</td>
-        <td></td>
-        <td></td>
-        <td>
-          <button data-type="inv-save" data-id="${inv.id}">💾 Sauvegarder</button>
-          <button data-type="inv-cancel" data-id="${inv.id}">✖️ Annuler</button>
-        </td>
-      `;
-
-      // insert customer select into the 3rd cell
-      tr.children[2].appendChild(custSel);
+      // Open edit modal
+      window.openInvoiceEditModal(inv, payments, lines);
       return;
     }
 
@@ -1314,24 +2286,53 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // URSSAF declare
+    // URSSAF declare - ouvre modal
     if (target.dataset.type === 'urssaf-declare-btn') {
       const id = parseInt(target.dataset.id, 10);
-      const input = document.querySelector(`input[data-type="urssaf-declare-date"][data-id="${id}"]`);
-      const date = input.value || new Date().toISOString().slice(0,10);
-      await window.api.markUrssafDeclared({ invoiceId: id, date });
-      await refresh();
+      const modal = document.getElementById('urssaf-declare-modal');
+      const dateInput = document.getElementById('urssaf-declare-date-input');
+      dateInput.value = new Date().toISOString().slice(0,10);
+      modal.style.display = 'flex';
+      modal.dataset.invoiceId = id;
       return;
     }
 
-    // URSSAF payment
+    // URSSAF payment - ouvre modal
     if (target.dataset.type === 'urssaf-pay-btn') {
       const id = parseInt(target.dataset.id, 10);
-      const input = document.querySelector(`input[data-type="urssaf-pay-amount"][data-id="${id}"]`);
-      const amount = parseFloat(input.value || '0');
-      if (amount <= 0) return alert('Montant invalide');
-      await window.api.addUrssafPayment({ invoiceId: id, amount });
-      await refresh();
+      const inv = state.invoices.find(i => i.id === id);
+      if (!inv) return;
+      
+      const modal = document.getElementById('urssaf-pay-modal');
+      const dateInput = document.getElementById('urssaf-pay-date-input');
+      const amountInput = document.getElementById('urssaf-pay-amount-input');
+      
+      dateInput.value = new Date().toISOString().slice(0,10);
+      amountInput.value = inv.urssaf_due || 0;
+      modal.style.display = 'flex';
+      modal.dataset.invoiceId = id;
+      return;
+    }
+
+    // Invoice payment - ouvre modal
+    if (target.dataset.type === 'inv-pay-btn') {
+      const id = parseInt(target.dataset.id, 10);
+      const inv = state.invoices.find(i => i.id === id);
+      if (!inv) return;
+      
+      const modal = document.getElementById('invoice-pay-modal');
+      const dateInput = document.getElementById('invoice-pay-date-input');
+      const amountInput = document.getElementById('invoice-pay-amount-input');
+      const totalRadio = document.getElementById('payment-type-total');
+      
+      dateInput.value = new Date().toISOString().slice(0,10);
+      amountInput.value = inv.due || 0;
+      totalRadio.checked = true;
+      document.getElementById('partial-amount-container').style.display = 'none';
+      
+      modal.style.display = 'flex';
+      modal.dataset.invoiceId = id;
+      modal.dataset.dueAmount = inv.due;
       return;
     }
 
@@ -1374,6 +2375,13 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    // Product materials modal
+    if (target.dataset.type === 'prod-materials') {
+      const id = parseInt(target.dataset.id, 10);
+      await openProductMaterialsModal(id);
+      return;
+    }
+
     // Edit / delete product
     if (target.dataset.type === 'prod-edit') {
       const id = parseInt(target.dataset.id, 10);
@@ -1385,6 +2393,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td><input type="text" data-edit="prod-name" value="${prod.name}" style="width:200px;" /></td>
         <td><input type="number" data-edit="prod-price" value="${prod.price}" step="0.01" style="width:120px;" /></td>
         <td><input type="number" data-edit="prod-stock" value="${prod.stock}" step="1" style="width:80px;" /></td>
+        <td colspan="2"></td>
         <td>
           <button data-type="prod-save" data-id="${prod.id}">💾</button>
           <button data-type="prod-cancel">✖️</button>
@@ -1423,7 +2432,165 @@ document.addEventListener('DOMContentLoaded', () => {
         await refresh();
       } catch (err) {
         console.error('deleteProduct error', err);
-        alert('Erreur suppression produit: ' + (err && err.message ? err.message : err));
+        showToast('Erreur suppression produit: ' + (err && err.message ? err.message : err), 'error');
+      }
+      return;
+    }
+
+    // Edit / delete raw materials
+    if (target.dataset.type === 'raw-mat-edit') {
+      const id = parseInt(target.dataset.id, 10);
+      const tr = target.closest('tr');
+      const mat = state.rawMaterials.find(m => m.id === id);
+      if (!mat) return;
+      tr.innerHTML = `
+        <td>${mat.id}</td>
+        <td><input type="text" data-edit="mat-name" value="${mat.name}" style="width:200px;" /></td>
+        <td><input type="text" data-edit="mat-unit" value="${mat.unit}" style="width:100px;" /></td>
+        <td><input type="number" data-edit="mat-cost" value="${mat.unit_cost}" step="0.01" style="width:100px;" /></td>
+        <td><input type="number" data-edit="mat-stock" value="${mat.current_stock}" step="0.01" style="width:100px;" /></td>
+        <td>
+          <button data-type="raw-mat-save" data-id="${mat.id}">💾</button>
+          <button data-type="raw-mat-cancel">✖️</button>
+        </td>
+      `;
+      return;
+    }
+
+    if (target.dataset.type === 'raw-mat-save') {
+      const id = parseInt(target.dataset.id, 10);
+      const tr = target.closest('tr');
+      const name = tr.querySelector('[data-edit="mat-name"]').value.trim();
+      const unit = tr.querySelector('[data-edit="mat-unit"]').value.trim();
+      const unit_cost = parseFloat(tr.querySelector('[data-edit="mat-cost"]').value || '0');
+      const current_stock = parseFloat(tr.querySelector('[data-edit="mat-stock"]').value || '0');
+      
+      if (!name) return showToast('Nom de la matière obligatoire', 'warning');
+      
+      await window.api.updateRawMaterial({ id, name, unit, unit_cost, current_stock });
+      showToast('Matière première mise à jour', 'success');
+      await refresh();
+      return;
+    }
+
+    if (target.dataset.type === 'raw-mat-cancel') {
+      await refresh();
+      return;
+    }
+
+    if (target.dataset.type === 'raw-mat-del') {
+      const id = parseInt(target.dataset.id, 10);
+      if (!confirm('Supprimer cette matière première ? (Supprimera aussi les compositions de produits associées)')) return;
+      try {
+        await window.api.deleteRawMaterial(id);
+        showToast('Matière première supprimée', 'success');
+        await refresh();
+      } catch (err) {
+        console.error('deleteRawMaterial error', err);
+        showToast('Erreur suppression matière: ' + (err && err.message ? err.message : err), 'error');
+      }
+      return;
+    }
+
+    // Edit raw material purchase
+    if (target.dataset.type === 'raw-pur-edit') {
+      const id = parseInt(target.dataset.id, 10);
+      const tr = target.closest('tr');
+      const pu = (state.rawMaterialPurchases || []).find(p => p.id === id);
+      if (!pu) return;
+
+      // Build selects
+      const matSel = document.createElement('select');
+      (state.rawMaterials || []).forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = `${m.name} (${m.unit})`;
+        if (m.id === pu.raw_material_id) opt.selected = true;
+        matSel.appendChild(opt);
+      });
+
+      const compSel = document.createElement('select');
+      (state.companies || []).forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        if (c.id === pu.company_id) opt.selected = true;
+        compSel.appendChild(opt);
+      });
+
+      tr.innerHTML = `
+        <td>${pu.id}</td>
+        <td></td>
+        <td><input type="date" data-edit="raw-pur-date" value="${pu.date}" style="width:120px;" /></td>
+        <td></td>
+        <td><input type="number" min="0.01" step="0.01" data-edit="raw-pur-qty" value="${pu.quantity}" style="width:80px;" /></td>
+        <td><input type="number" min="0" step="0.01" data-edit="raw-pur-cost" value="${pu.unit_cost}" style="width:80px;" /></td>
+        <td>${formatEuro(pu.total_cost)}</td>
+        <td><input type="date" data-edit="raw-pur-paid" value="${pu.paid_date || ''}" placeholder="Date paiement" style="width:120px;" /></td>
+        <td><input type="date" data-edit="raw-pur-delivery" value="${pu.delivery_date || ''}" placeholder="Date livraison" style="width:120px;" /></td>
+        <td>
+          <button data-type="raw-pur-save" data-id="${pu.id}">💾</button>
+          <button data-type="raw-pur-cancel">✖️</button>
+        </td>
+      `;
+
+      tr.children[1].appendChild(compSel);
+      tr.children[3].appendChild(matSel);
+      return;
+    }
+
+    if (target.dataset.type === 'raw-pur-save') {
+      const id = parseInt(target.dataset.id, 10);
+      const tr = target.closest('tr');
+      const selects = tr.querySelectorAll('select');
+      const company_id = selects[0] ? parseInt(selects[0].value, 10) : null;
+      const raw_material_id = selects[1] ? parseInt(selects[1].value, 10) : null;
+      const date = tr.querySelector('[data-edit="raw-pur-date"]').value;
+      const quantity = parseFloat(tr.querySelector('[data-edit="raw-pur-qty"]').value || '0');
+      const unit_cost = parseFloat(tr.querySelector('[data-edit="raw-pur-cost"]').value || '0');
+      const paid_date = tr.querySelector('[data-edit="raw-pur-paid"]').value || null;
+      const delivery_date = tr.querySelector('[data-edit="raw-pur-delivery"]').value || null;
+
+      if (!raw_material_id || quantity <= 0 || unit_cost < 0) {
+        return showToast('Matière, quantité et coût valides requis', 'warning');
+      }
+
+      try {
+        await window.api.updateRawMaterialPurchase({ 
+          id, 
+          raw_material_id, 
+          company_id, 
+          date, 
+          quantity, 
+          unit_cost,
+          paid_date,
+          delivery_date
+        });
+        showToast('Achat mis à jour', 'success');
+        await refresh();
+      } catch (err) {
+        console.error('updateRawMaterialPurchase error', err);
+        showToast('Erreur mise à jour: ' + (err && err.message ? err.message : err), 'error');
+      }
+      return;
+    }
+
+    if (target.dataset.type === 'raw-pur-cancel') {
+      await refresh();
+      return;
+    }
+
+    // Delete raw material purchase
+    if (target.dataset.type === 'raw-pur-del') {
+      const id = parseInt(target.dataset.id, 10);
+      if (!confirm('Supprimer cet achat de matière première ?')) return;
+      try {
+        await window.api.deleteRawMaterialPurchase(id);
+        showToast('Achat supprimé', 'success');
+        await refresh();
+      } catch (err) {
+        console.error('deleteRawMaterialPurchase error', err);
+        showToast('Erreur suppression: ' + (err && err.message ? err.message : err), 'error');
       }
       return;
     }
@@ -1475,6 +2642,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>${comp.id}</td>
         <td><input type="text" data-edit="comp-code" value="${comp.code}" style="width:120px;" /></td>
         <td><input type="text" data-edit="comp-name" value="${comp.name}" style="width:220px;" /></td>
+        <td><input type="email" data-edit="comp-email" value="${comp.email || ''}" style="width:220px;" /></td>
         <td>
           <button data-type="company-save" data-id="${comp.id}">💾</button>
           <button data-type="company-cancel">✖️</button>
@@ -1488,9 +2656,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const tr = target.closest('tr');
       const code = tr.querySelector('[data-edit="comp-code"]').value.trim();
       const name = tr.querySelector('[data-edit="comp-name"]').value.trim();
+      const email = tr.querySelector('[data-edit="comp-email"]').value.trim();
       if (!code || !name) return alert('Code et nom requis');
       try {
-        await window.api.updateCompany({ id, code, name });
+        await window.api.updateCompany({ id, code, name, email });
         await refresh();
       } catch (err) {
         console.error('updateCompany error', err);
@@ -1555,27 +2724,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Nouvel achat fournisseur
+  // Nouvel achat matière première
   document.getElementById('btn-add-purchase').addEventListener('click', async () => {
-    const supplierId = parseInt(document.getElementById('purchase-supplier').value, 10);
-    const productId = parseInt(document.getElementById('purchase-product').value, 10);
+    const date = document.getElementById('purchase-date').value || new Date().toISOString().slice(0, 10);
+    const materialId = parseInt(document.getElementById('purchase-material').value, 10);
     const companyId = parseInt((document.getElementById('purchase-company') && document.getElementById('purchase-company').value) || '0', 10) || null;
     const qty = parseFloat(document.getElementById('purchase-qty').value || '0');
     const unitCost = parseFloat(document.getElementById('purchase-unit-cost').value || '0');
+    const paidToday = document.getElementById('purchase-paid-today').checked;
 
-    if (!supplierId || !productId || qty <= 0 || unitCost < 0) {
-      return alert('Fournisseur, produit, quantité et coût sont obligatoires');
+    if (!materialId || qty <= 0 || unitCost < 0) {
+      return showToast('Matière première, quantité et coût sont obligatoires', 'warning');
     }
 
-    await window.api.addPurchase({
-      supplierId,
-      productId,
-      qty,
-      unitCost,
-      companyId
+    await window.api.addRawMaterialPurchase({
+      date,
+      raw_material_id: materialId,
+      supplier_id: null,
+      company_id: companyId,
+      quantity: qty,
+      unit_cost: unitCost,
+      paid: 0,
+      paid_date: paidToday ? date : null
     });
 
-    alert('Achat enregistré. Le stock du produit a été augmenté.');
+    showToast('Achat de matière première enregistré', 'success');
+    document.getElementById('purchase-date').value = '';
+    document.getElementById('purchase-qty').value = '1';
+    document.getElementById('purchase-unit-cost').value = '0';
+    document.getElementById('purchase-paid-today').checked = false;
     await refresh();
   });
 

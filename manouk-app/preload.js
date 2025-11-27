@@ -11,6 +11,9 @@ contextBridge.exposeInMainWorld('api', {
   createInvoiceAndSend: (payload) => ipcRenderer.invoke('invoice:createAndSend', payload),
   addSupplier: (supplier) => ipcRenderer.invoke('supplier:add', supplier),
   updateInvoice: (payload) => ipcRenderer.invoke('invoice:update', payload),
+  getInvoicePayments: (invoiceId) => ipcRenderer.invoke('invoice:getPayments', invoiceId),
+  getInvoiceLines: (invoiceId) => ipcRenderer.invoke('invoice:getLines', invoiceId),
+  updateInvoicePayments: (payload) => ipcRenderer.invoke('invoice:updatePayments', payload),
   deleteInvoice: (id) => ipcRenderer.invoke('invoice:delete', id),
   updatePurchase: (payload) => ipcRenderer.invoke('purchase:update', payload),
   deletePurchase: (id) => ipcRenderer.invoke('purchase:delete', id),
@@ -41,5 +44,17 @@ contextBridge.exposeInMainWorld('api', {
   selectLogo: () => ipcRenderer.invoke('dialog:selectLogo')
   ,
   markUrssafDeclared: (payload) => ipcRenderer.invoke('urssaf:markDeclared', payload),
-  addUrssafPayment: (payload) => ipcRenderer.invoke('urssaf:addPayment', payload)
+  addUrssafPayment: (payload) => ipcRenderer.invoke('urssaf:addPayment', payload),
+  // Raw materials
+  getRawMaterials: () => ipcRenderer.invoke('rawMaterial:getAll'),
+  addRawMaterial: (material) => ipcRenderer.invoke('rawMaterial:add', material),
+  updateRawMaterial: (material) => ipcRenderer.invoke('rawMaterial:update', material),
+  deleteRawMaterial: (id) => ipcRenderer.invoke('rawMaterial:delete', id),
+  getProductMaterials: (productId) => ipcRenderer.invoke('product:getMaterials', productId),
+  setProductMaterials: (productId, materials) => ipcRenderer.invoke('product:setMaterials', productId, materials),
+  calculateProductCost: (productId) => ipcRenderer.invoke('product:calculateCost', productId),
+  addRawMaterialPurchase: (purchase) => ipcRenderer.invoke('rawMaterialPurchase:add', purchase),
+  getRawMaterialPurchases: () => ipcRenderer.invoke('rawMaterialPurchase:getAll'),
+  updateRawMaterialPurchase: (purchase) => ipcRenderer.invoke('rawMaterialPurchase:update', purchase),
+  deleteRawMaterialPurchase: (id) => ipcRenderer.invoke('rawMaterialPurchase:delete', id)
 });

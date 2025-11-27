@@ -4,8 +4,81 @@ const Database = require('better-sqlite3');
 const nodemailer = require('nodemailer');
 const fs = require('fs');
 const os = require('os');
+const { exec } = require('child_process');
 
 const db = new Database('manouk.db');
+
+// Function to generate next invoice number
+function getNextInvoiceNumber(companyId) {
+  const year = new Date().getFullYear();
+  const company = db.prepare('SELECT code FROM companies WHERE id = ?').get(companyId);
+  const companyCode = company ? company.code.toUpperCase() : 'FA';
+  
+  const result = db.transaction(() => {
+    // Get or create sequence
+    let seq = db.prepare('SELECT last_number FROM invoice_sequences WHERE company_id = ? AND year = ?').get(companyId, year);
+    
+    if (!seq) {
+      db.prepare('INSERT INTO invoice_sequences (company_id, year, last_number) VALUES (?, ?, 1)').run(companyId, year);
+      return `${companyCode}-${year}-0001`;
+    }
+    
+    const nextNum = seq.last_number + 1;
+    db.prepare('UPDATE invoice_sequences SET last_number = ? WHERE company_id = ? AND year = ?').run(nextNum, companyId, year);
+    
+    return `${companyCode}-${year}-${String(nextNum).padStart(4, '0')}`;
+  })();
+  
+  return result;
+}
+
+// Auto backup database daily
+function scheduleBackup() {
+  const backupDir = path.join(app.getPath('userData'), 'backups');
+  
+  try {
+    if (!fs.existsSync(backupDir)) {
+      fs.mkdirSync(backupDir, { recursive: true });
+    }
+  } catch (e) {
+    console.error('Failed to create backup directory', e);
+    return;
+  }
+  
+  const performBackup = () => {
+    try {
+      const date = new Date().toISOString().split('T')[0];
+      const backupPath = path.join(backupDir, `manouk-${date}.db`);
+      
+      // Copy database file
+      db.backup(backupPath).then(() => {
+        console.log('Database backed up to:', backupPath);
+        
+        // Clean old backups (keep last 30 days)
+        const files = fs.readdirSync(backupDir);
+        const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+        
+        files.forEach(file => {
+          const filePath = path.join(backupDir, file);
+          const stats = fs.statSync(filePath);
+          if (stats.mtimeMs < thirtyDaysAgo) {
+            fs.unlinkSync(filePath);
+          }
+        });
+      }).catch(err => {
+        console.error('Backup failed:', err);
+      });
+    } catch (e) {
+      console.error('Backup error:', e);
+    }
+  };
+  
+  // Backup on startup
+  performBackup();
+  
+  // Schedule daily backup (every 24 hours)
+  setInterval(performBackup, 24 * 60 * 60 * 1000);
+}
 
 function initDb() {
   // Clients
@@ -40,9 +113,19 @@ function initDb() {
     CREATE TABLE IF NOT EXISTS companies (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       code TEXT UNIQUE NOT NULL,
-      name TEXT NOT NULL
+      name TEXT NOT NULL,
+      email TEXT
     );
   `).run();
+
+  // Migration: add email column to companies if missing
+  try {
+    const companyCols = db.prepare("PRAGMA table_info(companies)").all();
+    const hasEmail = companyCols.some(c => c.name === 'email');
+    if (!hasEmail) {
+      db.prepare('ALTER TABLE companies ADD COLUMN email TEXT').run();
+    }
+  } catch (e) {}
 
   // Settings (clé/valeur JSON)
   db.prepare(`
@@ -215,41 +298,93 @@ function initDb() {
   insertRole.run('production', 'Production');
   insertRole.run('logistics', 'Logistique');
 
-  // --- Données de base pour toi ---
+  // Table for invoice numbering per company
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS invoice_sequences (
+      company_id INTEGER NOT NULL,
+      year INTEGER NOT NULL,
+      last_number INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (company_id, year),
+      FOREIGN KEY (company_id) REFERENCES companies(id)
+    );
+  `).run();
 
-  // Client Marie Victoire
-  const existingCustomer = db
-    .prepare('SELECT id FROM customers WHERE name = ?')
-    .get('Marie Victoire');
-  if (!existingCustomer) {
-    db.prepare('INSERT INTO customers (name) VALUES (?)')
-      .run('Marie Victoire');
-  }
+  // Table for raw materials (matières premières)
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS raw_materials (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      unit TEXT NOT NULL DEFAULT 'unité',
+      current_stock REAL NOT NULL DEFAULT 0,
+      unit_cost REAL NOT NULL DEFAULT 0,
+      notes TEXT
+    );
+  `).run();
 
-  // Produit "Étuis à lunettes" à 3€
-  const existingProduct = db
-    .prepare('SELECT id FROM products WHERE name = ?')
-    .get('Étuis à lunettes');
-  if (!existingProduct) {
-    db.prepare('INSERT INTO products (name, price, stock) VALUES (?, ?, ?)')
-      .run('Étuis à lunettes', 3.0, 0);
-  }
+  // Table for product composition (nomenclature/BOM)
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS product_materials (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      product_id INTEGER NOT NULL,
+      raw_material_id INTEGER NOT NULL,
+      quantity REAL NOT NULL DEFAULT 1,
+      FOREIGN KEY (product_id) REFERENCES products(id),
+      FOREIGN KEY (raw_material_id) REFERENCES raw_materials(id),
+      UNIQUE(product_id, raw_material_id)
+    );
+  `).run();
 
-  // Fournisseurs de base
-  const suppliers = ['Elena (liner)', 'Fournisseur vis', 'Fournisseur pailles'];
-  const getSupplier = db.prepare('SELECT id FROM suppliers WHERE name = ?');
-  const insertSupplier = db.prepare('INSERT INTO suppliers (name) VALUES (?)');
+  // Table for raw material purchases history
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS raw_material_purchases (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      raw_material_id INTEGER NOT NULL,
+      supplier_id INTEGER,
+      company_id INTEGER,
+      date TEXT NOT NULL,
+      quantity REAL NOT NULL,
+      unit_cost REAL NOT NULL,
+      total_cost REAL NOT NULL,
+      paid REAL NOT NULL DEFAULT 0,
+      due REAL NOT NULL DEFAULT 0,
+      FOREIGN KEY (raw_material_id) REFERENCES raw_materials(id),
+      FOREIGN KEY (supplier_id) REFERENCES suppliers(id),
+      FOREIGN KEY (company_id) REFERENCES companies(id)
+    );
+  `).run();
 
-  suppliers.forEach((name) => {
-    const row = getSupplier.get(name);
-    if (!row) insertSupplier.run(name);
-  });
+  // Add invoice_number column to invoices if missing
+  try {
+    const cols = db.prepare("PRAGMA table_info(invoices)").all();
+    const hasInvoiceNumber = cols.some(c => c.name === 'invoice_number');
+    if (!hasInvoiceNumber) {
+      db.prepare('ALTER TABLE invoices ADD COLUMN invoice_number TEXT').run();
+    }
+  } catch (e) {}
 
-  // Seed companies (manouk, bibizi)
-  const getCompany = db.prepare('SELECT id FROM companies WHERE code = ?');
-  const insertCompany = db.prepare('INSERT OR IGNORE INTO companies (code, name) VALUES (?, ?)');
-  insertCompany.run('manouk', 'Manouk');
-  insertCompany.run('bibizi', 'Bibizi');
+  // Add delivery_date and paid_date columns to raw_material_purchases if missing
+  try {
+    const rmCols = db.prepare("PRAGMA table_info(raw_material_purchases)").all();
+    const hasDeliveryDate = rmCols.some(c => c.name === 'delivery_date');
+    const hasPaidDate = rmCols.some(c => c.name === 'paid_date');
+    if (!hasDeliveryDate) {
+      db.prepare('ALTER TABLE raw_material_purchases ADD COLUMN delivery_date TEXT').run();
+    }
+    if (!hasPaidDate) {
+      db.prepare('ALTER TABLE raw_material_purchases ADD COLUMN paid_date TEXT').run();
+    }
+  } catch (e) {}
+
+  // Add paid_date to URSSAF table
+  try {
+    const ursCols = db.prepare("PRAGMA table_info(urssaf)").all();
+    const hasUrsPaidDate = ursCols.some(c => c.name === 'paid_date');
+    if (!hasUrsPaidDate) {
+      db.prepare('ALTER TABLE urssaf ADD COLUMN paid_date TEXT').run();
+    }
+  } catch (e) {}
+
+  // --- Base vide - Aucune donnée par défaut ---
 }
 
 function getDashboardData() {
@@ -260,6 +395,7 @@ function getDashboardData() {
   const invoices = db.prepare(`
     SELECT
       i.id,
+      i.invoice_number,
       i.date,
       i.company_id,
       co.name AS company_name,
@@ -340,17 +476,165 @@ function getDashboardData() {
   const purchases_total = purchases.reduce((s, p) => s + (p.total_cost || 0), 0);
   const payables_total = purchases.reduce((s, p) => s + (p.due || 0), 0);
 
-  // Inclure URSSAF due dans les dettes globales
-  const payables_including_urssaf = payables_total + urssaf_due;
+  // Achats de matières premières
+  const rawMaterialPurchasesRow = db.prepare('SELECT IFNULL(SUM(total_cost), 0) as total, IFNULL(SUM(due), 0) as due, IFNULL(SUM(paid), 0) as paid FROM raw_material_purchases').get();
+  const raw_purchases_total = rawMaterialPurchasesRow.total || 0;
+  const raw_payables_total = rawMaterialPurchasesRow.due || 0;
+  const raw_paid_total = rawMaterialPurchasesRow.paid || 0;
 
-  // Solde actuel (cash-like) = paiements clients - paiements fournisseurs - URSSAF payés
-  const current_cash = (totalClients || 0) - (totalFournisseurs || 0) - (urssaf_paid || 0);
+  // Totaux combinés (anciens achats produits + nouveaux achats matières premières)
+  const all_purchases_total = purchases_total + raw_purchases_total;
+  const all_payables_total = payables_total + raw_payables_total;
+
+  // Inclure URSSAF due dans les dettes globales
+  const payables_including_urssaf = all_payables_total + urssaf_due;
+
+  // Solde actuel (cash-like) = paiements clients - paiements fournisseurs - paiements matières premières - URSSAF payés
+  const current_cash = (totalClients || 0) - (totalFournisseurs || 0) - (raw_paid_total || 0) - (urssaf_paid || 0);
 
   // Scénario si tout est soldé : encaissement des créances, paiement des dettes (+URSSAF)
-  const settled_cash = current_cash + receivables_total - payables_total - urssaf_due;
+  const settled_cash = current_cash + receivables_total - all_payables_total - urssaf_due;
 
   // Résultat économique (si on considère CA - achats - URSSAF)
-  const result_if_settled = ca_total - purchases_total - urssaf_total;
+  const result_if_settled = ca_total - all_purchases_total - urssaf_total;
+
+  // Product profitability analysis
+  const productStats = products.map(p => {
+    // Total sold
+    const soldRow = db.prepare(`
+      SELECT IFNULL(SUM(il.qty), 0) as total_sold, 
+             IFNULL(SUM(il.qty * il.unit_price), 0) as revenue
+      FROM invoice_lines il
+      WHERE il.product_id = ?
+    `).get(p.id);
+    
+    // Average purchase cost
+    const avgCostRow = db.prepare(`
+      SELECT IFNULL(AVG(unit_cost), 0) as avg_cost
+      FROM purchases
+      WHERE product_id = ?
+    `).get(p.id);
+    
+    const totalSold = soldRow.total_sold || 0;
+    const revenue = soldRow.revenue || 0;
+    const avgCost = avgCostRow.avg_cost || 0;
+    const totalCost = totalSold * avgCost;
+    const margin = revenue - totalCost;
+    const marginPercent = revenue > 0 ? ((margin / revenue) * 100) : 0;
+    
+    return {
+      id: p.id,
+      name: p.name,
+      totalSold,
+      revenue,
+      avgCost,
+      totalCost,
+      margin,
+      marginPercent
+    };
+  });
+
+  // Overdue invoices (>30 days)
+  const overdueInvoices = db.prepare(`
+    SELECT COUNT(*) as count, IFNULL(SUM(i.total - IFNULL((SELECT SUM(amount) FROM invoice_payments WHERE invoice_id = i.id), 0)), 0) as amount
+    FROM invoices i
+    WHERE (i.total - IFNULL((SELECT SUM(amount) FROM invoice_payments WHERE invoice_id = i.id), 0)) > 0.01
+    AND DATE(i.date) < DATE('now', '-30 days')
+  `).get();
+
+  // Low stock products (stock < 10)
+  const lowStockProducts = db.prepare(`
+    SELECT id, name, stock
+    FROM products
+    WHERE stock < 10
+    ORDER BY stock ASC
+    LIMIT 10
+  `).all();
+
+  // Monthly revenue trend (last 6 months)
+  const monthlyRevenue = db.prepare(`
+    SELECT 
+      strftime('%Y-%m', date) as month,
+      IFNULL(SUM(total), 0) as revenue
+    FROM invoices
+    WHERE date >= DATE('now', '-6 months')
+    GROUP BY strftime('%Y-%m', date)
+    ORDER BY month ASC
+  `).all();
+
+  // Monthly paid revenue (from payments)
+  const monthlyRevenuePaid = db.prepare(`
+    SELECT 
+      strftime('%Y-%m', ip.date) as month,
+      IFNULL(SUM(ip.amount), 0) as revenue_paid
+    FROM invoice_payments ip
+    WHERE ip.date >= DATE('now', '-6 months')
+    GROUP BY strftime('%Y-%m', ip.date)
+    ORDER BY month ASC
+  `).all();
+
+  // Monthly supplier payments (legacy purchases payments)
+  const monthlyPurchasePayments = db.prepare(`
+    SELECT 
+      strftime('%Y-%m', pp.date) as month,
+      IFNULL(SUM(pp.amount), 0) as amount
+    FROM purchase_payments pp
+    WHERE pp.date >= DATE('now', '-6 months')
+    GROUP BY strftime('%Y-%m', pp.date)
+    ORDER BY month ASC
+  `).all();
+
+  // Monthly raw material purchases fully paid (using paid_date)
+  const monthlyRawPurchasePayments = db.prepare(`
+    SELECT 
+      strftime('%Y-%m', rmp.paid_date) as month,
+      IFNULL(SUM(rmp.total_cost), 0) as amount
+    FROM raw_material_purchases rmp
+    WHERE rmp.paid_date IS NOT NULL
+      AND rmp.paid_date >= DATE('now', '-6 months')
+    GROUP BY strftime('%Y-%m', rmp.paid_date)
+    ORDER BY month ASC
+  `).all();
+
+  // Merge expenses (purchases + raw purchases) per month
+  const monthAgg = new Map();
+  monthlyRevenuePaid.forEach(r => {
+    monthAgg.set(r.month, { rev: r.revenue_paid || 0, exp: 0 });
+  });
+  monthlyPurchasePayments.forEach(p => {
+    const cur = monthAgg.get(p.month) || { rev: 0, exp: 0 };
+    cur.exp += (p.amount || 0);
+    monthAgg.set(p.month, cur);
+  });
+  monthlyRawPurchasePayments.forEach(p => {
+    const cur = monthAgg.get(p.month) || { rev: 0, exp: 0 };
+    cur.exp += (p.amount || 0);
+    monthAgg.set(p.month, cur);
+  });
+
+  const monthsAll = Array.from(monthAgg.keys()).sort();
+  const monthlyExpensesPaid = monthsAll.map(m => ({ month: m, expenses_paid: (monthAgg.get(m)?.exp) || 0 }));
+  const monthlyResultPaid = monthsAll.map(m => ({ month: m, result_paid: ((monthAgg.get(m)?.rev) || 0) - ((monthAgg.get(m)?.exp) || 0) }));
+
+  // Expose raw payment events for day-level plotting (with company_id for filtering)
+  const invoicePayments = db.prepare(`
+    SELECT ip.date, ip.amount, i.company_id
+    FROM invoice_payments ip
+    JOIN invoices i ON i.id = ip.invoice_id
+    ORDER BY ip.date ASC
+  `).all();
+  const purchasePayments = db.prepare(`
+    SELECT pp.date, pp.amount, p.company_id
+    FROM purchase_payments pp
+    JOIN purchases p ON p.id = pp.purchase_id
+    ORDER BY pp.date ASC
+  `).all();
+  const rawPurchasePaidEvents = db.prepare(`
+    SELECT paid_date as date, CASE WHEN paid > 0 THEN paid ELSE total_cost END as amount, company_id
+    FROM raw_material_purchases
+    WHERE paid_date IS NOT NULL
+    ORDER BY paid_date ASC
+  `).all();
 
   return {
     customers,
@@ -361,11 +645,21 @@ function getDashboardData() {
     companyAggregates,
     invoices,
     purchases,
+    productStats,
+    overdueInvoices,
+    lowStockProducts,
+    monthlyRevenue,
+    monthlyRevenuePaid,
+    monthlyExpensesPaid,
+    monthlyResultPaid,
+    invoicePayments,
+    purchasePayments,
+    rawPurchasePaidEvents,
     // expose more explicit accounting fields
     ca_total,
     receivables_total,
-    purchases_total,
-    payables_total,
+    purchases_total: all_purchases_total,
+    payables_total: all_payables_total,
     payables_including_urssaf,
     urssaf_total,
     urssaf_paid,
@@ -374,7 +668,10 @@ function getDashboardData() {
     totalFournisseurs,
     current_cash,
     settled_cash,
-    result_if_settled
+    result_if_settled,
+    raw_purchases_total,
+    raw_payables_total,
+    raw_paid_total
   };
 }
 
@@ -487,31 +784,33 @@ ipcMain.handle('settings:set', (event, key, value) => {
 
 // Companies CRUD
 ipcMain.handle('company:getAll', (event) => {
-  return db.prepare('SELECT id, code, name FROM companies ORDER BY id').all();
+  return db.prepare('SELECT id, code, name, email FROM companies ORDER BY id').all();
 });
 
 ipcMain.handle('company:add', (event, payload) => {
   const code = (payload.code || '').trim();
   const name = (payload.name || '').trim();
+  const email = (payload.email || '').trim();
   if (!code || !name) throw new Error('Code et nom requis');
-  db.prepare('INSERT OR IGNORE INTO companies (code, name) VALUES (?, ?)').run(code, name);
-  return db.prepare('SELECT id, code, name FROM companies ORDER BY id').all();
+  db.prepare('INSERT OR IGNORE INTO companies (code, name, email) VALUES (?, ?, ?)').run(code, name, email || null);
+  return db.prepare('SELECT id, code, name, email FROM companies ORDER BY id').all();
 });
 
 ipcMain.handle('company:update', (event, payload) => {
   const id = payload.id;
   const code = (payload.code || '').trim();
   const name = (payload.name || '').trim();
+  const email = (payload.email || '').trim();
   if (!id || !code || !name) throw new Error('id, code et nom requis');
-  db.prepare('UPDATE companies SET code = ?, name = ? WHERE id = ?').run(code, name, id);
-  return db.prepare('SELECT id, code, name FROM companies ORDER BY id').all();
+  db.prepare('UPDATE companies SET code = ?, name = ?, email = ? WHERE id = ?').run(code, name, email || null, id);
+  return db.prepare('SELECT id, code, name, email FROM companies ORDER BY id').all();
 });
 
 ipcMain.handle('company:delete', (event, id) => {
   if (!id) throw new Error('id requis');
   // remove company; invoices/purchases referencing it will keep company_id NULL
   db.prepare('DELETE FROM companies WHERE id = ?').run(id);
-  return db.prepare('SELECT id, code, name FROM companies ORDER BY id').all();
+  return db.prepare('SELECT id, code, name, email FROM companies ORDER BY id').all();
 });
 
 // Send email (uses stored SMTP settings by default)
@@ -619,8 +918,8 @@ ipcMain.handle('roles:getAll', (event) => {
 });
 
 // Create a sale that may be split between companies according to product_shares
-ipcMain.handle('sale:createSplit', (event, payload) => {
-  // payload: { customerId, lines: [{productId, qty, unit_price, note}], date }
+ipcMain.handle('sale:createSplit', async (event, payload) => {
+  // payload: { customerId, lines: [{productId, qty, unit_price, note}], date, sendEmail, to, subject, text }
   const date = payload.date || new Date().toISOString().slice(0,10);
   const lines = payload.lines || [];
 
@@ -668,13 +967,24 @@ ipcMain.handle('sale:createSplit', (event, payload) => {
   const updateStock = db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?');
   Object.keys(qtyPerProduct).forEach(pid => updateStock.run(qtyPerProduct[pid], pid));
 
-  return getDashboardData();
+  // Send emails if requested
+  let mailResults = [];
+  if (payload.sendEmail && created.length > 0) {
+    try {
+      mailResults = await sendMultiCompanyInvoiceEmails(created, payload);
+    } catch (err) {
+      console.error('Email sending error:', err);
+    }
+  }
+
+  const data = getDashboardData();
+  return { data, created, mailResults };
 });
 
 // Create a sale by role allocations (payload.lines include roleAllocations)
-ipcMain.handle('sale:createByRole', (event, payload) => {
-  // payload: { customerId, lines: [{ productId, qty, unit_price, note, allocations: [{ role_id, company_id, qty }] }], date }
-  const date = payload.date || new Date().toISOString().slice(0,10);
+ipcMain.handle('sale:createByRole', async (event, payload) => {
+  // payload: { customerId, lines: [{ productId, qty, unit_price, note, allocations: [{ role_id, company_id, qty }] }], invoice_date, date, sendEmail, to, subject, text }
+  const date = payload.invoice_date || payload.date || new Date().toISOString().slice(0,10);
   const lines = payload.lines || [];
 
   // Build company-specific invoice lines from allocations
@@ -706,7 +1016,18 @@ ipcMain.handle('sale:createByRole', (event, payload) => {
   const updateStock = db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?');
   Object.keys(qtyPerProduct).forEach(pid => updateStock.run(qtyPerProduct[pid], pid));
 
-  return getDashboardData();
+  // Send emails if requested
+  let mailResults = [];
+  if (payload.sendEmail && created.length > 0) {
+    try {
+      mailResults = await sendMultiCompanyInvoiceEmails(created, payload);
+    } catch (err) {
+      console.error('Email sending error:', err);
+    }
+  }
+
+  const data = getDashboardData();
+  return { data, created, mailResults };
 });
 
 // Mettre à jour un achat (fournisseur, produit, qty, unitCost, date)
@@ -812,10 +1133,13 @@ const createInvoiceNoStockTx = db.transaction((payload) => {
   let total = 0;
   lines.forEach((l) => { total += l.qty * l.unit_price; });
 
+  // Generate invoice number
+  const invoiceNumber = companyId ? getNextInvoiceNumber(companyId) : null;
+
   const info = db.prepare(`
-    INSERT INTO invoices (customer_id, company_id, date, total)
-    VALUES (?, ?, ?, ?)
-  `).run(customerId, companyId || null, date, total);
+    INSERT INTO invoices (customer_id, company_id, date, total, invoice_number)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(customerId, companyId || null, date, total, invoiceNumber);
 
   const invoiceId = info.lastInsertRowid;
 
@@ -840,7 +1164,7 @@ const createInvoiceNoStockTx = db.transaction((payload) => {
 });
 
 ipcMain.handle('invoice:create', (event, payload) => {
-  const date = payload.date || new Date().toISOString().slice(0, 10);
+  const date = payload.invoice_date || payload.date || new Date().toISOString().slice(0, 10);
   const id = createInvoiceTx({ ...payload, date });
   return getDashboardData();
 });
@@ -849,6 +1173,34 @@ ipcMain.handle('invoice:create', (event, payload) => {
 ipcMain.handle('invoice:update', (event, payload) => {
   const { invoiceId, customerId, date } = payload;
   db.prepare('UPDATE invoices SET customer_id = ?, date = ? WHERE id = ?').run(customerId, date, invoiceId);
+  return getDashboardData();
+});
+
+// Récupérer les paiements d'une facture
+ipcMain.handle('invoice:getPayments', (event, invoiceId) => {
+  return db.prepare('SELECT * FROM invoice_payments WHERE invoice_id = ? ORDER BY date ASC').all(invoiceId);
+});
+
+// Récupérer les lignes d'une facture
+ipcMain.handle('invoice:getLines', (event, invoiceId) => {
+  return db.prepare('SELECT * FROM invoice_lines WHERE invoice_id = ? ORDER BY id ASC').all(invoiceId);
+});
+
+// Mettre à jour les paiements d'une facture
+ipcMain.handle('invoice:updatePayments', (event, payload) => {
+  const { invoiceId, payments } = payload;
+  const tx = db.transaction(() => {
+    // Delete existing payments
+    db.prepare('DELETE FROM invoice_payments WHERE invoice_id = ?').run(invoiceId);
+    // Insert new payments
+    const insertPay = db.prepare('INSERT INTO invoice_payments (invoice_id, date, amount, method, note) VALUES (?, ?, ?, ?, ?)');
+    payments.forEach(p => {
+      if (p.amount > 0) {
+        insertPay.run(invoiceId, p.date, p.amount, p.method || 'Virement', p.note || '');
+      }
+    });
+  });
+  tx();
   return getDashboardData();
 });
 
@@ -1015,9 +1367,134 @@ async function generatePdfFromHtml(html, filename) {
   });
 }
 
+// Send emails for multi-company invoices
+async function sendMultiCompanyInvoiceEmails(created, payload) {
+  // created: [{ companyId, invoiceId }, ...]
+  // payload: { customerId, to, subject, text, ... }
+  
+  const results = [];
+  
+  // Get SMTP settings
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('smtp');
+  const smtp = row ? JSON.parse(row.value) : null;
+  if (!smtp) {
+    return [{ ok: false, error: 'SMTP settings not configured' }];
+  }
+  
+  const transporter = nodemailer.createTransport(smtp);
+  const from = smtp.auth && smtp.auth.user ? smtp.auth.user : 'noreply@example.com';
+  
+  // Get customer info
+  const customer = db.prepare('SELECT name, email FROM customers WHERE id = ?').get(payload.customerId);
+  const customerEmail = payload.to || (customer ? customer.email : null);
+  const customerName = customer ? customer.name : '';
+  
+  // Get company info for signature
+  let companyInfo = {};
+  try { 
+    const crow = db.prepare('SELECT value FROM settings WHERE key = ?').get('company'); 
+    if (crow) companyInfo = JSON.parse(crow.value); 
+  } catch (e) {}
+  
+  // Generate PDFs for all invoices
+  const invoicePdfs = [];
+  for (const item of created) {
+    try {
+      const info = buildInvoiceHtml(item.invoiceId);
+      const filename = `facture-${item.invoiceId}.pdf`;
+      const pdfPath = await generatePdfFromHtml(info.html, filename);
+      const company = db.prepare('SELECT name, email FROM companies WHERE id = ?').get(item.companyId);
+      invoicePdfs.push({ 
+        invoiceId: item.invoiceId, 
+        companyId: item.companyId,
+        companyName: company ? company.name : '',
+        companyEmail: company ? company.email : null,
+        filename, 
+        pdfPath 
+      });
+    } catch (err) {
+      console.error(`Error generating PDF for invoice ${item.invoiceId}:`, err);
+    }
+  }
+  
+  if (invoicePdfs.length === 0) {
+    return [{ ok: false, error: 'No PDFs generated' }];
+  }
+  
+  // Prepare email content
+  const mailText = payload.text || `Bonjour ${customerName},\n\nVeuillez trouver ci-joint votre/vos facture(s).\n\nCordialement,\n${companyInfo.name || ''}`;
+  const mailHtml = payload.html || `<p>Bonjour <strong>${customerName}</strong>,</p><p>Veuillez trouver ci-joint votre/vos facture(s).</p><p>Cordialement,<br/>${companyInfo.name || ''}</p>`;
+  const subject = payload.subject || `Facture(s) ${customerName}`;
+  
+  // 1. Send to customer with ALL PDFs attached
+  if (customerEmail) {
+    const attachments = invoicePdfs.map(pdf => ({ filename: pdf.filename, path: pdf.pdfPath }));
+    try {
+      const infoSend = await transporter.sendMail({
+        from,
+        to: customerEmail,
+        subject,
+        text: mailText,
+        html: mailHtml,
+        attachments
+      });
+      results.push({ 
+        ok: true, 
+        recipient: customerEmail, 
+        type: 'customer',
+        info: infoSend 
+      });
+    } catch (err) {
+      results.push({ 
+        ok: false, 
+        recipient: customerEmail, 
+        type: 'customer',
+        error: err.message 
+      });
+    }
+  }
+  
+  // 2. Send to each company (CC) with only their invoice
+  for (const pdf of invoicePdfs) {
+    if (pdf.companyEmail) {
+      const companySubject = `Copie facture ${pdf.companyName} - ${customerName}`;
+      const companyText = `Bonjour,\n\nVeuillez trouver ci-joint une copie de la facture ${pdf.companyName} pour le client ${customerName}.\n\nCordialement,\n${companyInfo.name || ''}`;
+      const companyHtml = `<p>Bonjour,</p><p>Veuillez trouver ci-joint une copie de la facture <strong>${pdf.companyName}</strong> pour le client <strong>${customerName}</strong>.</p><p>Cordialement,<br/>${companyInfo.name || ''}</p>`;
+      
+      try {
+        const infoSend = await transporter.sendMail({
+          from,
+          to: pdf.companyEmail,
+          subject: companySubject,
+          text: companyText,
+          html: companyHtml,
+          attachments: [{ filename: pdf.filename, path: pdf.pdfPath }]
+        });
+        results.push({ 
+          ok: true, 
+          recipient: pdf.companyEmail, 
+          type: 'company',
+          companyName: pdf.companyName,
+          info: infoSend 
+        });
+      } catch (err) {
+        results.push({ 
+          ok: false, 
+          recipient: pdf.companyEmail, 
+          type: 'company',
+          companyName: pdf.companyName,
+          error: err.message 
+        });
+      }
+    }
+  }
+  
+  return results;
+}
+
 ipcMain.handle('invoice:createAndSend', async (event, payload) => {
   try {
-    const date = payload.date || new Date().toISOString().slice(0, 10);
+    const date = payload.invoice_date || payload.date || new Date().toISOString().slice(0, 10);
     const invoiceId = createInvoiceTx({ ...payload, date });
 
     let mailResult = null;
@@ -1115,16 +1592,223 @@ ipcMain.handle('urssaf:markDeclared', (event, payload) => {
 
 // Ajouter paiement URSSAF (ajoute au champ paid)
 ipcMain.handle('urssaf:addPayment', (event, payload) => {
-  const { invoiceId, amount } = payload;
+  const { invoiceId, amount, date } = payload;
   const current = db.prepare('SELECT paid FROM urssaf WHERE invoice_id = ?').get(invoiceId);
   const paid = (current && current.paid) ? (current.paid + amount) : amount;
-  db.prepare('INSERT OR REPLACE INTO urssaf (invoice_id, amount, declared_date, paid) VALUES (?, COALESCE((SELECT amount FROM urssaf WHERE invoice_id = ?), 0), COALESCE((SELECT declared_date FROM urssaf WHERE invoice_id = ?), NULL), ?)')
-    .run(invoiceId, invoiceId, invoiceId, paid);
+  const paidDate = date || new Date().toISOString().slice(0,10);
+  db.prepare('INSERT OR REPLACE INTO urssaf (invoice_id, amount, declared_date, paid, paid_date) VALUES (?, COALESCE((SELECT amount FROM urssaf WHERE invoice_id = ?), 0), COALESCE((SELECT declared_date FROM urssaf WHERE invoice_id = ?), NULL), ?, ?)')
+    .run(invoiceId, invoiceId, invoiceId, paid, paidDate);
+  return getDashboardData();
+});
+
+// ========== RAW MATERIALS MANAGEMENT ==========
+
+ipcMain.handle('rawMaterial:getAll', () => {
+  return db.prepare('SELECT * FROM raw_materials ORDER BY name').all();
+});
+
+ipcMain.handle('rawMaterial:add', (event, material) => {
+  const result = db.prepare(`
+    INSERT INTO raw_materials (name, unit, current_stock, unit_cost, notes)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(
+    material.name,
+    material.unit || 'unité',
+    material.current_stock || 0,
+    material.unit_cost || 0,
+    material.notes || null
+  );
+  return result.lastInsertRowid;
+});
+
+ipcMain.handle('rawMaterial:update', (event, material) => {
+  db.prepare(`
+    UPDATE raw_materials
+    SET name = ?, unit = ?, current_stock = ?, unit_cost = ?, notes = ?
+    WHERE id = ?
+  `).run(
+    material.name,
+    material.unit,
+    material.current_stock,
+    material.unit_cost,
+    material.notes,
+    material.id
+  );
+  return getDashboardData();
+});
+
+ipcMain.handle('rawMaterial:delete', (event, id) => {
+  db.prepare('DELETE FROM product_materials WHERE raw_material_id = ?').run(id);
+  db.prepare('DELETE FROM raw_materials WHERE id = ?').run(id);
+  return getDashboardData();
+});
+
+// Product composition (BOM)
+ipcMain.handle('product:getMaterials', (event, productId) => {
+  return db.prepare(`
+    SELECT pm.*, rm.name, rm.unit, rm.unit_cost
+    FROM product_materials pm
+    JOIN raw_materials rm ON pm.raw_material_id = rm.id
+    WHERE pm.product_id = ?
+  `).all(productId);
+});
+
+ipcMain.handle('product:setMaterials', (event, productId, materials) => {
+  // Delete existing compositions
+  db.prepare('DELETE FROM product_materials WHERE product_id = ?').run(productId);
+  
+  // Insert new compositions
+  const stmt = db.prepare(`
+    INSERT INTO product_materials (product_id, raw_material_id, quantity)
+    VALUES (?, ?, ?)
+  `);
+  
+  materials.forEach(m => {
+    if (m.raw_material_id && m.quantity > 0) {
+      stmt.run(productId, m.raw_material_id, m.quantity);
+    }
+  });
+  
+  return getDashboardData();
+});
+
+// Calculate product cost based on materials
+ipcMain.handle('product:calculateCost', (event, productId) => {
+  const materials = db.prepare(`
+    SELECT pm.quantity, rm.unit_cost, rm.name, rm.unit
+    FROM product_materials pm
+    JOIN raw_materials rm ON pm.raw_material_id = rm.id
+    WHERE pm.product_id = ?
+  `).all(productId);
+  
+  let totalCost = 0;
+  const details = [];
+  
+  materials.forEach(m => {
+    const cost = m.quantity * m.unit_cost;
+    totalCost += cost;
+    details.push({
+      name: m.name,
+      quantity: m.quantity,
+      unit: m.unit,
+      unit_cost: m.unit_cost,
+      total: cost
+    });
+  });
+  
+  return { totalCost, details };
+});
+
+// Raw material purchase
+ipcMain.handle('rawMaterialPurchase:add', (event, purchase) => {
+  const date = purchase.date || new Date().toISOString().slice(0, 10);
+  const total = purchase.quantity * purchase.unit_cost;
+  const due = total - (purchase.paid || 0);
+  
+  const result = db.prepare(`
+    INSERT INTO raw_material_purchases 
+    (raw_material_id, supplier_id, company_id, date, quantity, unit_cost, total_cost, paid, due)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    purchase.raw_material_id,
+    purchase.supplier_id || null,
+    purchase.company_id || null,
+    date,
+    purchase.quantity,
+    purchase.unit_cost,
+    total,
+    purchase.paid || 0,
+    due
+  );
+  
+  // Update stock and average cost
+  const current = db.prepare('SELECT current_stock, unit_cost FROM raw_materials WHERE id = ?')
+    .get(purchase.raw_material_id);
+  
+  if (current) {
+    const newStock = (current.current_stock || 0) + purchase.quantity;
+    // Weighted average cost
+    const oldValue = (current.current_stock || 0) * (current.unit_cost || 0);
+    const newValue = purchase.quantity * purchase.unit_cost;
+    const newAvgCost = newStock > 0 ? (oldValue + newValue) / newStock : purchase.unit_cost;
+    
+    db.prepare(`
+      UPDATE raw_materials 
+      SET current_stock = ?, unit_cost = ?
+      WHERE id = ?
+    `).run(newStock, newAvgCost, purchase.raw_material_id);
+  }
+  
+  return getDashboardData();
+});
+
+ipcMain.handle('rawMaterialPurchase:getAll', () => {
+  return db.prepare(`
+    SELECT 
+      rmp.*,
+      rm.name as material_name,
+      rm.unit,
+      s.name as supplier_name,
+      c.name as company_name
+    FROM raw_material_purchases rmp
+    LEFT JOIN raw_materials rm ON rmp.raw_material_id = rm.id
+    LEFT JOIN suppliers s ON rmp.supplier_id = s.id
+    LEFT JOIN companies c ON rmp.company_id = c.id
+    ORDER BY rmp.date DESC
+  `).all();
+});
+
+ipcMain.handle('rawMaterialPurchase:update', (event, purchase) => {
+  const { id, raw_material_id, company_id, date, quantity, unit_cost, delivery_date, paid_date } = purchase;
+  const total = quantity * unit_cost;
+  const paid = paid_date ? total : 0;
+  const due = total - paid;
+  
+  const tx = db.transaction(() => {
+    // Get old purchase to adjust stock
+    const old = db.prepare('SELECT raw_material_id, quantity FROM raw_material_purchases WHERE id = ?').get(id);
+    
+    if (old) {
+      // If same material, adjust by difference
+      if (old.raw_material_id === raw_material_id) {
+        const diff = quantity - old.quantity;
+        db.prepare('UPDATE raw_materials SET current_stock = current_stock + ? WHERE id = ?').run(diff, raw_material_id);
+      } else {
+        // Material changed: remove old qty, add new qty
+        db.prepare('UPDATE raw_materials SET current_stock = current_stock - ? WHERE id = ?').run(old.quantity, old.raw_material_id);
+        db.prepare('UPDATE raw_materials SET current_stock = current_stock + ? WHERE id = ?').run(quantity, raw_material_id);
+      }
+    }
+    
+    db.prepare(`
+      UPDATE raw_material_purchases 
+      SET raw_material_id = ?, company_id = ?, date = ?, quantity = ?, unit_cost = ?, 
+          total_cost = ?, paid = ?, due = ?, delivery_date = ?, paid_date = ?
+      WHERE id = ?
+    `).run(raw_material_id, company_id, date, quantity, unit_cost, total, paid, due, delivery_date || null, paid_date || null, id);
+  });
+  
+  tx();
+  return getDashboardData();
+});
+
+ipcMain.handle('rawMaterialPurchase:delete', (event, id) => {
+  const tx = db.transaction(() => {
+    // Get purchase to adjust stock
+    const pu = db.prepare('SELECT raw_material_id, quantity FROM raw_material_purchases WHERE id = ?').get(id);
+    if (pu) {
+      db.prepare('UPDATE raw_materials SET current_stock = current_stock - ? WHERE id = ?').run(pu.quantity, pu.raw_material_id);
+    }
+    db.prepare('DELETE FROM raw_material_purchases WHERE id = ?').run(id);
+  });
+  
+  tx();
   return getDashboardData();
 });
 
 app.whenReady().then(() => {
   initDb();
+  scheduleBackup();
   createWindow();
 
   app.on('activate', () => {
