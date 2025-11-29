@@ -1,0 +1,5 @@
+cd C:\Users\lordb\Documents\manouk-app\manouk-pwa
+$env:NEXT_PUBLIC_SUPABASE_URL="https://zgyxipbamvbvqdytdqmk.supabase.co"
+$env:SUPABASE_SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpneXhpcGJhbXZidnFkeXRkcW1rIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDI3NDU4MiwiZXhwIjoyMDc5ODUwNTgyfQ.0N1KsQASn5gIimVs7ftxslxopU6OKn9pq880VnKOfmg"
+$env:USER_ID="53a93c98-b5f4-404a-be65-601a6d1a00ef"
+node scripts/import-to-supabase.mjs

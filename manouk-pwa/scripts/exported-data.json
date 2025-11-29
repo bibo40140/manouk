@@ -1,0 +1,521 @@
+{
+  "companies": [
+    {
+      "id": 1,
+      "code": "Manouk",
+      "name": "Manouk",
+      "email": "fabien.hicauber+manouk@gmail.com"
+    },
+    {
+      "id": 2,
+      "code": "Bibizi",
+      "name": "bibizi",
+      "email": "fabien.hicauber+bibizi@gmail.com"
+    }
+  ],
+  "customers": [
+    {
+      "id": 1,
+      "name": "Victoire Family Eyes",
+      "email": "fabien.hicauber+victoire@gmail.com"
+    }
+  ],
+  "suppliers": [
+    {
+      "id": 1,
+      "name": "Elena"
+    }
+  ],
+  "raw_materials": [
+    {
+      "id": 1,
+      "name": "Liner",
+      "unit": "unité",
+      "current_stock": 2146,
+      "unit_cost": 0.5,
+      "notes": null
+    },
+    {
+      "id": 2,
+      "name": "bouton de col",
+      "unit": "unité",
+      "current_stock": 500,
+      "unit_cost": 0.1,
+      "notes": null
+    },
+    {
+      "id": 3,
+      "name": "Vis",
+      "unit": "unité",
+      "current_stock": 100,
+      "unit_cost": 0.06462,
+      "notes": null
+    },
+    {
+      "id": 4,
+      "name": "Paille",
+      "unit": "unité",
+      "current_stock": 100,
+      "unit_cost": 0.016,
+      "notes": null
+    }
+  ],
+  "products": [
+    {
+      "id": 1,
+      "name": "étuis à lunette",
+      "price": 4,
+      "stock": 50
+    }
+  ],
+  "product_materials": [
+    {
+      "id": 5,
+      "product_id": 1,
+      "raw_material_id": 1,
+      "quantity": 1
+    },
+    {
+      "id": 6,
+      "product_id": 1,
+      "raw_material_id": 2,
+      "quantity": 1
+    },
+    {
+      "id": 7,
+      "product_id": 1,
+      "raw_material_id": 3,
+      "quantity": 1
+    },
+    {
+      "id": 8,
+      "product_id": 1,
+      "raw_material_id": 4,
+      "quantity": 1
+    }
+  ],
+  "invoices": [
+    {
+      "id": 1,
+      "customer_id": 1,
+      "company_id": 1,
+      "date": "2025-03-26",
+      "total": 300,
+      "invoice_number": "MANOUK-2025-0001"
+    },
+    {
+      "id": 2,
+      "customer_id": 1,
+      "company_id": 2,
+      "date": "2025-03-26",
+      "total": 100,
+      "invoice_number": "BIBIZI-2025-0001"
+    },
+    {
+      "id": 3,
+      "customer_id": 1,
+      "company_id": 1,
+      "date": "2025-04-18",
+      "total": 240,
+      "invoice_number": "MANOUK-2025-0002"
+    },
+    {
+      "id": 4,
+      "customer_id": 1,
+      "company_id": 2,
+      "date": "2025-04-18",
+      "total": 80,
+      "invoice_number": "BIBIZI-2025-0002"
+    },
+    {
+      "id": 5,
+      "customer_id": 1,
+      "company_id": 1,
+      "date": "2025-04-27",
+      "total": 480,
+      "invoice_number": "MANOUK-2025-0003"
+    },
+    {
+      "id": 6,
+      "customer_id": 1,
+      "company_id": 2,
+      "date": "2025-04-27",
+      "total": 160,
+      "invoice_number": "BIBIZI-2025-0003"
+    },
+    {
+      "id": 7,
+      "customer_id": 1,
+      "company_id": 1,
+      "date": "2025-07-18",
+      "total": 540,
+      "invoice_number": "MANOUK-2025-0004"
+    },
+    {
+      "id": 8,
+      "customer_id": 1,
+      "company_id": 2,
+      "date": "2025-07-18",
+      "total": 180,
+      "invoice_number": "BIBIZI-2025-0004"
+    },
+    {
+      "id": 9,
+      "customer_id": 1,
+      "company_id": 1,
+      "date": "2025-07-18",
+      "total": 450,
+      "invoice_number": "MANOUK-2025-0005"
+    },
+    {
+      "id": 10,
+      "customer_id": 1,
+      "company_id": 2,
+      "date": "2025-07-18",
+      "total": 150,
+      "invoice_number": "BIBIZI-2025-0005"
+    },
+    {
+      "id": 11,
+      "customer_id": 1,
+      "company_id": 1,
+      "date": "2025-07-18",
+      "total": 450,
+      "invoice_number": "MANOUK-2025-0006"
+    },
+    {
+      "id": 12,
+      "customer_id": 1,
+      "company_id": 2,
+      "date": "2025-07-18",
+      "total": 150,
+      "invoice_number": "BIBIZI-2025-0006"
+    },
+    {
+      "id": 13,
+      "customer_id": 1,
+      "company_id": 1,
+      "date": "2025-07-18",
+      "total": 360,
+      "invoice_number": "MANOUK-2025-0007"
+    },
+    {
+      "id": 14,
+      "customer_id": 1,
+      "company_id": 2,
+      "date": "2025-07-18",
+      "total": 120,
+      "invoice_number": "BIBIZI-2025-0007"
+    },
+    {
+      "id": 15,
+      "customer_id": 1,
+      "company_id": 1,
+      "date": "2025-10-07",
+      "total": 300,
+      "invoice_number": "MANOUK-2025-0008"
+    },
+    {
+      "id": 16,
+      "customer_id": 1,
+      "company_id": 2,
+      "date": "2025-10-07",
+      "total": 100,
+      "invoice_number": "BIBIZI-2025-0008"
+    },
+    {
+      "id": 17,
+      "customer_id": 1,
+      "company_id": 1,
+      "date": "2025-10-07",
+      "total": 360,
+      "invoice_number": "MANOUK-2025-0009"
+    },
+    {
+      "id": 18,
+      "customer_id": 1,
+      "company_id": 2,
+      "date": "2025-10-07",
+      "total": 120,
+      "invoice_number": "BIBIZI-2025-0009"
+    },
+    {
+      "id": 19,
+      "customer_id": 1,
+      "company_id": 1,
+      "date": "2025-10-07",
+      "total": 300,
+      "invoice_number": "MANOUK-2025-0010"
+    },
+    {
+      "id": 20,
+      "customer_id": 1,
+      "company_id": 2,
+      "date": "2025-10-07",
+      "total": 100,
+      "invoice_number": "BIBIZI-2025-0010"
+    },
+    {
+      "id": 21,
+      "customer_id": 1,
+      "company_id": 1,
+      "date": "2025-10-31",
+      "total": 150,
+      "invoice_number": "MANOUK-2025-0011"
+    },
+    {
+      "id": 22,
+      "customer_id": 1,
+      "company_id": 2,
+      "date": "2025-10-31",
+      "total": 50,
+      "invoice_number": "BIBIZI-2025-0011"
+    },
+    {
+      "id": 23,
+      "customer_id": 1,
+      "company_id": 1,
+      "date": "2025-10-11",
+      "total": 300,
+      "invoice_number": "MANOUK-2025-0012"
+    },
+    {
+      "id": 24,
+      "customer_id": 1,
+      "company_id": 2,
+      "date": "2025-10-11",
+      "total": 100,
+      "invoice_number": "BIBIZI-2025-0012"
+    },
+    {
+      "id": 25,
+      "customer_id": 1,
+      "company_id": 1,
+      "date": "2025-11-18",
+      "total": 450,
+      "invoice_number": "MANOUK-2025-0013"
+    },
+    {
+      "id": 26,
+      "customer_id": 1,
+      "company_id": 2,
+      "date": "2025-11-18",
+      "total": 150,
+      "invoice_number": "BIBIZI-2025-0013"
+    }
+  ],
+  "invoice_lines": [
+    {
+      "id": 1,
+      "invoice_id": 1,
+      "product_id": 1,
+      "qty": 100,
+      "unit_price": 3,
+      "note": null
+    },
+    {
+      "id": 2,
+      "invoice_id": 2,
+      "product_id": 1,
+      "qty": 100,
+      "unit_price": 1,
+      "note": null
+    },
+    {
+      "id": 3,
+      "invoice_id": 3,
+      "product_id": 1,
+      "qty": 80,
+      "unit_price": 3,
+      "note": null
+    },
+    {
+      "id": 4,
+      "invoice_id": 4,
+      "product_id": 1,
+      "qty": 80,
+      "unit_price": 1,
+      "note": null
+    },
+    {
+      "id": 5,
+      "invoice_id": 5,
+      "product_id": 1,
+      "qty": 160,
+      "unit_price": 3,
+      "note": null
+    },
+    {
+      "id": 6,
+      "invoice_id": 6,
+      "product_id": 1,
+      "qty": 160,
+      "unit_price": 1,
+      "note": null
+    },
+    {
+      "id": 7,
+      "invoice_id": 7,
+      "product_id": 1,
+      "qty": 180,
+      "unit_price": 3,
+      "note": null
+    },
+    {
+      "id": 8,
+      "invoice_id": 8,
+      "product_id": 1,
+      "qty": 180,
+      "unit_price": 1,
+      "note": null
+    },
+    {
+      "id": 9,
+      "invoice_id": 9,
+      "product_id": 1,
+      "qty": 150,
+      "unit_price": 3,
+      "note": null
+    },
+    {
+      "id": 10,
+      "invoice_id": 10,
+      "product_id": 1,
+      "qty": 150,
+      "unit_price": 1,
+      "note": null
+    },
+    {
+      "id": 11,
+      "invoice_id": 11,
+      "product_id": 1,
+      "qty": 150,
+      "unit_price": 3,
+      "note": null
+    },
+    {
+      "id": 12,
+      "invoice_id": 12,
+      "product_id": 1,
+      "qty": 150,
+      "unit_price": 1,
+      "note": null
+    },
+    {
+      "id": 13,
+      "invoice_id": 13,
+      "product_id": 1,
+      "qty": 120,
+      "unit_price": 3,
+      "note": null
+    },
+    {
+      "id": 14,
+      "invoice_id": 14,
+      "product_id": 1,
+      "qty": 120,
+      "unit_price": 1,
+      "note": null
+    },
+    {
+      "id": 15,
+      "invoice_id": 15,
+      "product_id": 1,
+      "qty": 100,
+      "unit_price": 3,
+      "note": null
+    },
+    {
+      "id": 16,
+      "invoice_id": 16,
+      "product_id": 1,
+      "qty": 100,
+      "unit_price": 1,
+      "note": null
+    },
+    {
+      "id": 17,
+      "invoice_id": 17,
+      "product_id": 1,
+      "qty": 120,
+      "unit_price": 3,
+      "note": null
+    },
+    {
+      "id": 18,
+      "invoice_id": 18,
+      "product_id": 1,
+      "qty": 120,
+      "unit_price": 1,
+      "note": null
+    },
+    {
+      "id": 19,
+      "invoice_id": 19,
+      "product_id": 1,
+      "qty": 100,
+      "unit_price": 3,
+      "note": null
+    },
+    {
+      "id": 20,
+      "invoice_id": 20,
+      "product_id": 1,
+      "qty": 100,
+      "unit_price": 1,
+      "note": null
+    },
+    {
+      "id": 21,
+      "invoice_id": 21,
+      "product_id": 1,
+      "qty": 50,
+      "unit_price": 3,
+      "note": null
+    },
+    {
+      "id": 22,
+      "invoice_id": 22,
+      "product_id": 1,
+      "qty": 50,
+      "unit_price": 1,
+      "note": null
+    },
+    {
+      "id": 23,
+      "invoice_id": 23,
+      "product_id": 1,
+      "qty": 100,
+      "unit_price": 3,
+      "note": null
+    },
+    {
+      "id": 24,
+      "invoice_id": 24,
+      "product_id": 1,
+      "qty": 100,
+      "unit_price": 1,
+      "note": null
+    },
+    {
+      "id": 25,
+      "invoice_id": 25,
+      "product_id": 1,
+      "qty": 150,
+      "unit_price": 3,
+      "note": null
+    },
+    {
+      "id": 26,
+      "invoice_id": 26,
+      "product_id": 1,
+      "qty": 150,
+      "unit_price": 1,
+      "note": null
+    }
+  ],
+  "payments": [],
+  "purchases": [],
+  "urssaf_declarations": [],
+  "email_settings": []
+}
