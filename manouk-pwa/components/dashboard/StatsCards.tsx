@@ -23,10 +23,10 @@ export default async function StatsCards({ companyId }: { companyId?: string }) 
   const purchasesPaid = purchases?.filter(p => p.paid).reduce((sum, p) => sum + (Number(p.quantity) * Number(p.unit_cost)), 0) || 0
   const payables = purchases?.filter(p => !p.paid).reduce((sum, p) => sum + (Number(p.quantity) * Number(p.unit_cost)), 0) || 0
   
-  // URSSAF dû = montant total URSSAF - montant payé
-  const urssafTotal = invoices?.reduce((sum, inv) => sum + (Number(inv.urssaf_amount) || 0), 0) || 0
-  const urssafPaid = invoices?.reduce((sum, inv) => sum + (Number(inv.urssaf_paid_amount) || 0), 0) || 0
-  const urssafDue = urssafTotal - urssafPaid
+  // URSSAF payé = somme des montants payés uniquement si une date de paiement existe
+  const urssafPaid = invoices?.reduce((sum, inv) => sum + (inv.urssaf_paid_date ? Number(inv.urssaf_paid_amount) || 0 : 0), 0) || 0;
+  // URSSAF dû = somme des montants URSSAF des factures non payées (pas de date de paiement)
+  const urssafDue = invoices?.reduce((sum, inv) => sum + (!inv.urssaf_paid_date ? Number(inv.urssaf_amount) || 0 : 0), 0) || 0;
   
   const result = totalPaid - purchasesPaid - urssafPaid
 
@@ -35,7 +35,8 @@ export default async function StatsCards({ companyId }: { companyId?: string }) 
     { label: 'Créances', value: receivables, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-600' },
     { label: 'Achats', value: purchasesPaid, color: 'text-gray-600', bg: 'bg-gray-50', border: 'border-gray-600' },
     { label: 'Dettes', value: payables, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-600' },
-    { label: 'URSSAF', value: urssafDue, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-600' },
+    { label: 'URSSAF dû', value: urssafDue, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-600' },
+    { label: 'URSSAF payé', value: urssafPaid, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-600' },
     { label: 'Résultat', value: result, color: result >= 0 ? 'text-green-600' : 'text-red-600', bg: result >= 0 ? 'bg-green-50' : 'bg-red-50', border: result >= 0 ? 'border-green-600' : 'border-red-600' },
   ]
 

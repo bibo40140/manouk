@@ -7,13 +7,13 @@ import InvoiceEditModal from './InvoiceEditModal'
 import UrssafDeclareModal from './UrssafDeclareModal'
 import UrssafPayModal from './UrssafPayModal'
 
-export default function InvoicesList({ invoices, companies, customers, products }: any) {
+export default function InvoicesList({ invoices, companies, customers, products, defaultCompanyId = '' }: any) {
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
   const [paymentInvoice, setPaymentInvoice] = useState<any>(null)
   const [editInvoice, setEditInvoice] = useState<any>(null)
   const [urssafDeclareInvoice, setUrssafDeclareInvoice] = useState<any>(null)
   const [urssafPayInvoice, setUrssafPayInvoice] = useState<any>(null)
-  const [companyFilter, setCompanyFilter] = useState('')
+  const [companyFilter, setCompanyFilter] = useState(defaultCompanyId === 'all' ? '' : defaultCompanyId)
 
   const formatEuro = (value: number) => {
     return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(value)
@@ -75,6 +75,7 @@ export default function InvoicesList({ invoices, companies, customers, products 
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Restant</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">Statut</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">URSSAF</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">Montant URSSAF</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Actions</th>
                 </tr>
               </thead>
@@ -132,6 +133,9 @@ export default function InvoicesList({ invoices, companies, customers, products 
                           )}
                         </div>
                       </td>
+                      <td className="px-4 py-3 text-center">
+                        {formatEuro(Number(invoice.urssaf_amount || 0))}
+                      </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex flex-col gap-2">
                           <div className="flex justify-end gap-2">
@@ -140,6 +144,31 @@ export default function InvoicesList({ invoices, companies, customers, products 
                               className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
                             >
                               ✏️ Modifier
+                            </button>
+                            <button
+                              onClick={async () => {
+                                // Appel API d'envoi
+                                const res = await fetch('/api/send-invoices', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    smtpConfig: window.SMTP_CONFIG || {}, // à adapter selon ton stockage config
+                                    invoices: [{
+                                      id: invoice.id,
+                                      to: invoice.customer?.email,
+                                      subject: `Votre facture ${invoice.invoice_number}`,
+                                      text: `Bonjour,\nVeuillez trouver votre facture en pièce jointe.`,
+                                      html: `<p>Bonjour,<br>Veuillez trouver votre facture en pièce jointe.</p>`,
+                                      attachments: [] // à compléter avec PDF/HTML si besoin
+                                    }]
+                                  })
+                                });
+                                if (res.ok) alert('Facture envoyée !');
+                                else alert('Erreur lors de l\'envoi');
+                              }}
+                              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                            >
+                              ✉️ Envoyer par mail
                             </button>
                             {remaining > 0 && (
                               <button

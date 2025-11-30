@@ -4,21 +4,26 @@ import RevenueChart from '@/components/dashboard/RevenueChart'
 import RecentInvoices from '@/components/dashboard/RecentInvoices'
 import RecentPurchases from '@/components/dashboard/RecentPurchases'
 import CompanyFilter from '@/components/dashboard/CompanyFilter'
+import { cookies } from 'next/headers'
 
-export default async function DashboardPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ company?: string }>
-}) {
+export default async function DashboardPage() {
   const supabase = await createClient()
-  const params = await searchParams
-  const companyId = params.company
-  
-  // Récupérer les sociétés de l'utilisateur
   const { data: companies } = await supabase
     .from('companies')
     .select('*')
     .order('name')
+
+  // Lire la société active depuis le cookie (set côté client par le hook)
+  let companyId = 'all'
+  let cookieStore
+  try {
+    cookieStore = await cookies()
+  } catch (e) {}
+  if (cookieStore) {
+    companyId = cookieStore.get('active_company_id')?.value || companies?.[0]?.id || 'all'
+  } else {
+    companyId = companies?.[0]?.id || 'all'
+  }
 
   // Construire la query de base
   let invoicesQuery = supabase

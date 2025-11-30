@@ -1,27 +1,31 @@
 'use client'
 
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useActiveCompany } from '@/hooks/useActiveCompany';
 
 type Company = {
-  id: string
-  code: string
-  name: string
-}
+  id: string;
+  code: string;
+  name: string;
+};
 
 export default function CompanyFilter({ companies }: { companies: Company[] }) {
-  const searchParams = useSearchParams()
-  const router = useRouter()
-  const currentCompany = searchParams.get('company') || 'all'
+  const router = useRouter();
+  const { activeCompanyId, setActiveCompanyId } = useActiveCompany(companies);
+
+  useEffect(() => {
+    // Update cookie for SSR sync
+    if (typeof document !== 'undefined' && activeCompanyId) {
+      document.cookie = `active_company_id=${activeCompanyId}; path=/`;
+    }
+  }, [activeCompanyId]);
 
   const handleChange = (value: string) => {
-    const params = new URLSearchParams(searchParams.toString())
-    if (value === 'all') {
-      params.delete('company')
-    } else {
-      params.set('company', value)
-    }
-    router.push(`?${params.toString()}`)
-  }
+    setActiveCompanyId(value);
+    // Optionally, reload or push to update SSR pages
+    router.refresh();
+  };
 
   return (
     <div className="flex items-center gap-2">
@@ -29,7 +33,7 @@ export default function CompanyFilter({ companies }: { companies: Company[] }) {
         Filtrer société :
       </label>
       <select
-        value={currentCompany}
+        value={activeCompanyId || 'all'}
         onChange={(e) => handleChange(e.target.value)}
         className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
       >
@@ -41,5 +45,5 @@ export default function CompanyFilter({ companies }: { companies: Company[] }) {
         ))}
       </select>
     </div>
-  )
+  );
 }

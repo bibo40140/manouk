@@ -4,7 +4,21 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
+// Pour la démo, on stocke la config SMTP en dur ici (à remplacer par une vraie config sécurisée !)
+const SMTP_CONFIG = typeof window !== 'undefined' && (window as any).SMTP_CONFIG ? (window as any).SMTP_CONFIG : {
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
+  auth: { user: 'MAIL', pass: 'PASSWORD' }
+};
+
 export default function InvoiceEditModal({ invoice, onClose }: any) {
+    const [sendMail, setSendMail] = useState(false);
+  // Ajout des champs URSSAF
+  const [urssafAmount, setUrssafAmount] = useState(invoice?.urssaf_amount || 0);
+  const [urssafDeclaredDate, setUrssafDeclaredDate] = useState(invoice?.urssaf_declared_date || '');
+  const [urssafPaidDate, setUrssafPaidDate] = useState(invoice?.urssaf_paid_date || '');
+  const [urssafPaidAmount, setUrssafPaidAmount] = useState(invoice?.urssaf_paid_amount || 0);
   const router = useRouter()
   const supabase = createClient()
   
@@ -93,13 +107,19 @@ export default function InvoiceEditModal({ invoice, onClose }: any) {
       if (invoice) {
         // Update existing invoice
         const total = lines.reduce((sum, line) => sum + (Number(line.quantity) * Number(line.price)), 0)
-        
-        // Update invoice basic info
+        // Update invoice basic info, y compris URSSAF
         const { error: invoiceError } = await supabase
           .from('invoices')
-          .update({ customer_id: customerId, date, total })
+          .update({
+            customer_id: customerId,
+            date,
+            total,
+            urssaf_amount: urssafAmount,
+            urssaf_declared_date: urssafDeclaredDate || null,
+            urssaf_paid_date: urssafPaidDate || null,
+            urssaf_paid_amount: urssafPaidAmount || null
+          })
           .eq('id', invoice.id)
-        
         if (invoiceError) throw invoiceError
 
         // Delete existing lines and create new ones
@@ -172,11 +192,14 @@ export default function InvoiceEditModal({ invoice, onClose }: any) {
             company_id: lines[0]?.company_id || null,
             date,
             total,
-            paid: totalPaid
+            paid: totalPaid,
+            urssaf_amount: urssafAmount,
+            urssaf_declared_date: urssafDeclaredDate || null,
+            urssaf_paid_date: urssafPaidDate || null,
+            urssaf_paid_amount: urssafPaidAmount || null
           })
           .select()
           .single()
-        
         if (invoiceError) throw invoiceError
 
         // Insert lines
@@ -213,6 +236,24 @@ export default function InvoiceEditModal({ invoice, onClose }: any) {
         }
       }
 
+      // Envoi mail si demandé
+      if (sendMail) {
+        await fetch('/api/send-invoices', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            smtpConfig: SMTP_CONFIG,
+            invoices: [{
+              id: invoice?.id,
+              to: customers.find(c => c.id === customerId)?.email,
+              subject: `Votre facture ${invoice?.invoice_number || ''}`,
+              text: `Bonjour,\nVeuillez trouver votre facture en pièce jointe.`,
+              html: `<p>Bonjour,<br>Veuillez trouver votre facture en pièce jointe.</p>`,
+              attachments: []
+            }]
+          })
+        });
+      }
       router.refresh()
       onClose()
     } catch (err: any) {
@@ -237,6 +278,47 @@ export default function InvoiceEditModal({ invoice, onClose }: any) {
         </div>
 
         <div className="p-6 space-y-6">
+          {/* URSSAF fields */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Montant URSSAF</label>
+              <input
+                type="number"
+                step="0.01"
+                value={urssafAmount}
+                onChange={e => setUrssafAmount(Number(e.target.value))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Date déclaration URSSAF</label>
+              <input
+                type="date"
+                value={urssafDeclaredDate || ''}
+                onChange={e => setUrssafDeclaredDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Date paiement URSSAF</label>
+              <input
+                type="date"
+                value={urssafPaidDate || ''}
+                onChange={e => setUrssafPaidDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Montant payé URSSAF</label>
+              <input
+                type="number"
+                step="0.01"
+                value={urssafPaidAmount}
+                onChange={e => setUrssafPaidAmount(Number(e.target.value))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+          </div>
           {/* Basic Info */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -374,7 +456,11 @@ export default function InvoiceEditModal({ invoice, onClose }: any) {
           </div>
         </div>
 
-        <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
+        <div className="p-6 border-t border-gray-200 flex flex-col gap-3">
+          <label className="inline-flex items-center mb-2">
+            <input type="checkbox" checked={sendMail} onChange={e => setSendMail(e.target.checked)} className="mr-2" />
+            Envoyer la facture par mail à la validation
+          </label>
           <button
             onClick={onClose}
             className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
