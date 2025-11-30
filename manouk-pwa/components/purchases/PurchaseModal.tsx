@@ -13,7 +13,6 @@ export default function PurchaseModal({ companies, suppliers, rawMaterials }: an
   const [loading, setLoading] = useState(false)
   
   const [companyId, setCompanyId] = useState('')
-  const [supplierId, setSupplierId] = useState('')
   const [rawMaterialId, setRawMaterialId] = useState('')
   const [quantity, setQuantity] = useState('')
   const [unitCost, setUnitCost] = useState('')
@@ -29,7 +28,6 @@ export default function PurchaseModal({ companies, suppliers, rawMaterials }: an
         .from('purchases')
         .insert([{
           company_id: companyId,
-          supplier_id: supplierId,
           raw_material_id: rawMaterialId,
           quantity: parseFloat(quantity),
           unit_cost: parseFloat(unitCost),
@@ -41,7 +39,6 @@ export default function PurchaseModal({ companies, suppliers, rawMaterials }: an
 
       // Réinitialiser le formulaire
       setCompanyId('')
-      setSupplierId('')
       setRawMaterialId('')
       setQuantity('')
       setUnitCost('')
@@ -56,9 +53,6 @@ export default function PurchaseModal({ companies, suppliers, rawMaterials }: an
     }
   }
 
-  const filteredSuppliers = suppliers.filter((s: any) => 
-    !companyId || s.company_id === companyId
-  )
 
   const filteredRawMaterials = rawMaterials.filter((m: any) => 
     !companyId || m.company_id === companyId
@@ -113,23 +107,7 @@ export default function PurchaseModal({ companies, suppliers, rawMaterials }: an
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Fournisseur *
-                  </label>
-                  <select
-                    value={supplierId}
-                    onChange={(e) => setSupplierId(e.target.value)}
-                    required
-                    disabled={!companyId}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100"
-                  >
-                    <option value="">Sélectionner...</option>
-                    {filteredSuppliers.map((supplier: any) => (
-                      <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
-                    ))}
-                  </select>
-                </div>
+
 
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">

@@ -23,8 +23,9 @@ export default function CompanyFilter({ companies }: { companies: Company[] }) {
 
   const handleChange = (value: string) => {
     setActiveCompanyId(value);
-    // Optionally, reload or push to update SSR pages
+    // Forcer le rechargement pour mettre à jour le dashboard côté serveur
     router.refresh();
+    window.location.reload();
   };
 
   return (

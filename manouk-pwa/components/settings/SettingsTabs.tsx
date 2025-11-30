@@ -5,20 +5,19 @@ import CompaniesTab from './CompaniesTab'
 import ProductsTab from './ProductsTab'
 import RawMaterialsTab from './RawMaterialsTab'
 import CustomersTab from './CustomersTab'
-import SuppliersTab from './SuppliersTab'
+import SmtpSettings from './SmtpSettings'
 
-type TabName = 'companies' | 'products' | 'materials' | 'customers' | 'suppliers'
+type TabName = 'companies' | 'products' | 'materials' | 'customers' | 'smtp';
 
-export default function SettingsTabs({ companies, products, rawMaterials, customers, suppliers }: any) {
-  const [activeTab, setActiveTab] = useState<TabName>('companies')
-
+export default function SettingsTabs({ companies, products, rawMaterials, customers }: any) {
+  const [activeTab, setActiveTab] = useState<TabName>('companies');
   const tabs = [
     { id: 'companies' as TabName, label: '🏢 Sociétés', count: companies.length },
     { id: 'products' as TabName, label: '📦 Produits', count: products.length },
     { id: 'materials' as TabName, label: '🧱 Matières premières', count: rawMaterials.length },
     { id: 'customers' as TabName, label: '👥 Clients', count: customers.length },
-    { id: 'suppliers' as TabName, label: '🏭 Fournisseurs', count: suppliers.length },
-  ]
+    { id: 'smtp' as TabName, label: '✉️ Email', count: 0 },
+  ];
 
   return (
     <div>
@@ -52,7 +51,7 @@ export default function SettingsTabs({ companies, products, rawMaterials, custom
         {activeTab === 'products' && <ProductsTab products={products} companies={companies} rawMaterials={rawMaterials} />}
         {activeTab === 'materials' && <RawMaterialsTab rawMaterials={rawMaterials} companies={companies} />}
         {activeTab === 'customers' && <CustomersTab customers={customers} companies={companies} />}
-        {activeTab === 'suppliers' && <SuppliersTab suppliers={suppliers} companies={companies} />}
+        {activeTab === 'smtp' && <SmtpSettings />}
       </div>
     </div>
   )

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 import { useRouter } from 'next/navigation'
 import { PlusIcon, XMarkIcon, TrashIcon } from '@heroicons/react/24/outline'
@@ -17,19 +17,17 @@ type InvoiceLine = {
 import { createClient } from '@/lib/supabase/client'
 
 export default function InvoiceModal({ companies, customers, products }: any) {
-  const router = useRouter()
+  const router = useRouter();
+  const [isOpen, setIsOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const supabase = createClient();
+  const [customerId, setCustomerId] = useState('');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
+  const [lines, setLines] = useState<InvoiceLine[]>([]);
+  const [mailBody, setMailBody] = useState('Bonjour,\n\nVeuillez trouver vos factures en pièce jointe.\n\nCordialement.');
 
-  
-  const [isOpen, setIsOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const supabase = createClient()
-  
-  // const [companyId, setCompanyId] = useState('')
-  const [customerId, setCustomerId] = useState('')
-  const [invoiceNumber, setInvoiceNumber] = useState('')
-  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0])
-  const [dueDate, setDueDate] = useState('')
-  const [lines, setLines] = useState<InvoiceLine[]>([])
+  // ...le reste du code inchangé...
 
   const addLine = () => {
     // Ajoute une ligne avec une répartition initiale égale entre sociétés
@@ -63,51 +61,88 @@ export default function InvoiceModal({ companies, customers, products }: any) {
   }
 
   const updateLine = (index: number, field: keyof InvoiceLine | 'splits', value: any) => {
-    const newLines = [...lines];
-    const prev = newLines[index] || {};
-    let updated: any = {
-      product_id: field === 'product_id' ? (value || '') : (prev.product_id || ''),
-      product_name: field === 'product_name' ? (value || '') : (prev.product_name || ''),
-      quantity: field === 'quantity' ? (value ?? 1) : (typeof prev.quantity === 'number' ? prev.quantity : 1),
-      unit_price: field === 'unit_price' ? (value ?? 0) : (typeof prev.unit_price === 'number' ? prev.unit_price : 0),
-      total: typeof prev.total === 'number' ? prev.total : 0,
-      splits: prev.splits || companies.map((c: any) => ({ company_id: c.id, amount: 0 }))
-    };
-    // Auto-fill price and name when product is selected
-    if (field === 'product_id') {
-      const product = products.find((p: any) => p.id === value);
-      if (product) {
-        updated.unit_price = product.unit_price ?? product.price ?? 0;
-        updated.product_name = product.name;
-        // splits chargés plus bas via effet
+    setLines(prevLines => {
+      const newLines = [...prevLines];
+      const prev = newLines[index] || {};
+      let updated: any = { ...prev };
+      if (field === 'product_id') {
+        updated.product_id = value || '';
+        const product = products.find((p: any) => p.id === value);
+        if (product) {
+          updated.unit_price = product.unit_price ?? product.price ?? 0;
+          updated.product_name = product.name;
+        }
+        updated.total = (Number(updated.quantity ?? 1) || 0) * (Number(updated.unit_price ?? 0) || 0);
+      } else if (field === 'product_name') {
+        updated.product_name = value || '';
+      } else if (field === 'quantity') {
+        updated.quantity = value ?? 1;
+        updated.total = (Number(value) || 0) * (Number(updated.unit_price ?? 0) || 0);
+      } else if (field === 'unit_price') {
+        updated.unit_price = value ?? 0;
+        updated.total = (Number(updated.quantity ?? 1) || 0) * (Number(value) || 0);
+      } else if (field === 'splits') {
+        // On repart de la version la plus récente de la ligne
+        updated.splits = value;
+        if (!updated.product_id && lastProductIdRef.current) {
+          updated.product_id = lastProductIdRef.current;
+        }
       }
-    }
-    // Always recalc total if quantity or unit_price changes
-    if (field === 'quantity' || field === 'unit_price' || field === 'product_id') {
-      updated.total = (Number(updated.quantity) || 0) * (Number(updated.unit_price) || 0);
-    }
-    // Gestion splits (répartition multi-sociétés)
-    if (field === 'splits') {
-      updated.splits = value;
-    }
-    newLines[index] = updated;
-    setLines(newLines);
+      newLines[index] = updated;
+      return newLines;
+    });
   }
 
   // Effet pour charger les splits quand un produit est sélectionné
   const lastProductIdRef = useRef<string | null>(null)
   const handleProductChange = async (index: number, productId: string) => {
-    updateLine(index, 'product_id', productId)
+    updateLine(index, 'product_id', productId);
     if (productId && productId !== lastProductIdRef.current) {
-      lastProductIdRef.current = productId
-      const splits = await loadSplitsForProduct(productId)
-      updateLine(index, 'splits', splits)
+      lastProductIdRef.current = productId;
+      // Attendre que le state soit bien mis à jour avant de charger les splits
+      setTimeout(async () => {
+        const splits = await loadSplitsForProduct(productId);
+        updateLine(index, 'splits', splits);
+      }, 0);
     }
   }
 
   const calculateTotal = () => {
     return lines.reduce((sum, line) => sum + line.total, 0)
   }
+
+  // Génération automatique du numéro de facture
+  useEffect(() => {
+    const generateInvoiceNumber = async () => {
+      if (!companies || companies.length === 0) return;
+      // On prend la première société trouvée dans la répartition (ou adapte selon ton besoin)
+      const companyId = Object.keys(lines.reduce((acc, line) => {
+        (line.splits || []).forEach((split: any) => {
+          if (split.amount > 0) acc[split.company_id] = true;
+        });
+        return acc;
+      }, {} as Record<string, boolean>))[0] || companies[0].id;
+      // Cherche le dernier numéro pour cette société
+      const { data: lastInvoice, error } = await supabase
+        .from('invoices')
+        .select('invoice_number')
+        .eq('company_id', companyId)
+        .order('date', { ascending: false });
+      if (error) {
+        console.error('Supabase error (generateInvoiceNumber):', error);
+      }
+      const firstInvoice = Array.isArray(lastInvoice) ? lastInvoice[0] : lastInvoice;
+      let nextNum = 1;
+      if (firstInvoice?.invoice_number) {
+        const match = firstInvoice.invoice_number.match(/(\d+)$/);
+        if (match) nextNum = parseInt(match[1], 10) + 1;
+      }
+      const year = new Date().getFullYear();
+      setInvoiceNumber(`F${year}-${String(nextNum).padStart(3, '0')}`);
+    };
+    generateInvoiceNumber();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lines]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,6 +160,7 @@ export default function InvoiceModal({ companies, customers, products }: any) {
           if (!companyMap[split.company_id]) companyMap[split.company_id] = { total: 0, lines: [] };
           companyMap[split.company_id].lines.push({
             product_id: line.product_id,
+            product_name: line.product_name,
             quantity: line.quantity,
             unit_price: split.amount,
             total: split.amount * line.quantity
@@ -132,43 +168,78 @@ export default function InvoiceModal({ companies, customers, products }: any) {
           companyMap[split.company_id].total += split.amount * line.quantity;
         });
       });
-      // Créer une facture par société
+      // Créer une facture par société et collecter les infos pour l’API
+      const invoicesToSend: any[] = [];
       for (const [company_id, { total, lines: companyLines }] of Object.entries(companyMap)) {
-        const { data: invoice, error: invoiceError } = await supabase
+        // Génère le numéro de facture pour chaque société
+        const { data: lastInvoice, error: invoiceError } = await supabase
+          .from('invoices')
+          .select('invoice_number')
+          .eq('company_id', company_id)
+          .order('date', { ascending: false });
+        if (invoiceError) {
+          console.error('Supabase error (handleSubmit):', invoiceError);
+        }
+        const firstInvoice = Array.isArray(lastInvoice) ? lastInvoice[0] : lastInvoice;
+        let nextNum = 1;
+        if (firstInvoice?.invoice_number) {
+          const match = firstInvoice.invoice_number.match(/(\d+)$/);
+          if (match) nextNum = parseInt(match[1], 10) + 1;
+        }
+        const year = new Date().getFullYear();
+        const autoInvoiceNumber = `F${year}-${String(nextNum).padStart(3, '0')}`;
+        const { data: invoice, error: insertError } = await supabase
           .from('invoices')
           .insert([{
             company_id,
             customer_id: customerId,
-            invoice_number: invoiceNumber,
-            invoice_date: invoiceDate,
-            due_date: dueDate,
+            invoice_number: autoInvoiceNumber,
+            date: invoiceDate,
             total,
             paid: 0
           }])
           .select()
           .single();
-        if (invoiceError) throw invoiceError;
+        if (insertError) throw insertError;
         // Créer les lignes de facture pour cette société
-        const invoiceLines = companyLines.map(line => ({
+        // Séparer les données pour l'insert DB et pour le PDF
+        const invoiceLinesDb = companyLines.map(line => ({
           invoice_id: invoice.id,
           product_id: line.product_id,
           quantity: line.quantity,
-          unit_price: line.unit_price,
-          total: line.total
+          price: line.unit_price ?? 0
         }));
         const { error: linesError } = await supabase
           .from('invoice_lines')
-          .insert(invoiceLines);
+          .insert(invoiceLinesDb);
         if (linesError) throw linesError;
+
+        // Récupérer les infos société et client pour l'email
+        const company = companies.find((c: any) => c.id === company_id);
+        const customer = customers.find((c: any) => c.id === customerId);
+        invoicesToSend.push({ company, customer, invoice, lines: companyLines });
       }
+      // Envoi groupé au client (un seul mail, toutes les factures)
+      const customer = customers.find((c: any) => c.id === customerId);
+      await fetch('/api/send-invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          invoices: invoicesToSend,
+          to: customer?.email || '',
+          subject: `Vos factures ${customer?.name || ''}`,
+          text: mailBody
+        })
+      });
       // Réinitialiser le formulaire
       setCustomerId('');
       setInvoiceNumber('');
       setInvoiceDate(new Date().toISOString().split('T')[0]);
-      setDueDate('');
       setLines([]);
+      setMailBody('Bonjour,\n\nVeuillez trouver vos factures en pièce jointe.\n\nCordialement.');
       setIsOpen(false);
       router.refresh();
+      window.location.reload();
     } catch (err: any) {
       alert('Erreur: ' + err.message);
     } finally {
@@ -227,19 +298,7 @@ export default function InvoiceModal({ companies, customers, products }: any) {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    N° de facture *
-                  </label>
-                  <input
-                    type="text"
-                    value={invoiceNumber}
-                    onChange={(e) => setInvoiceNumber(e.target.value)}
-                    placeholder="ex: F2024-001"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  />
-                </div>
+                {/* N° de facture supprimé (auto) */}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -254,17 +313,7 @@ export default function InvoiceModal({ companies, customers, products }: any) {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date d'échéance
-                  </label>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  />
-                </div>
+                {/* Date d'échéance supprimée */}
               </div>
 
               {/* Lignes de facture */}
@@ -395,6 +444,17 @@ export default function InvoiceModal({ companies, customers, products }: any) {
                 </div>
               )}
 
+              {/* Message personnalisé pour le mail */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Message pour le client</label>
+                <textarea
+                  value={mailBody}
+                  onChange={e => setMailBody(e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+                <div className="text-xs text-gray-500 mt-1">Ce texte sera utilisé comme corps du mail envoyé au client.</div>
+              </div>
               {/* Actions */}
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <button
