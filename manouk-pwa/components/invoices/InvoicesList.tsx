@@ -15,14 +15,14 @@ import InvoiceEditModal from './InvoiceEditModal'
 import UrssafDeclareModal from './UrssafDeclareModal'
 import UrssafPayModal from './UrssafPayModal'
 
-export default function InvoicesList({ invoices: initialInvoices, companies, customers, products, defaultCompanyId = '' }: any) {
+
+export default function InvoicesList({ invoices: initialInvoices, companies, customers, products }: any) {
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
   const [resendModal, setResendModal] = useState<{invoice: any, open: boolean} | null>(null)
   const [paymentInvoice, setPaymentInvoice] = useState<any>(null)
   const [editInvoice, setEditInvoice] = useState<any>(null)
   const [urssafDeclareInvoice, setUrssafDeclareInvoice] = useState<any>(null)
   const [urssafPayInvoice, setUrssafPayInvoice] = useState<any>(null)
-  const [companyFilter, setCompanyFilter] = useState(defaultCompanyId === 'all' ? '' : defaultCompanyId)
   const [invoices, setInvoices] = useState<any[]>(initialInvoices || [])
 
   // Synchronise le state local avec les props à chaque changement
@@ -34,9 +34,8 @@ export default function InvoicesList({ invoices: initialInvoices, companies, cus
     return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(value)
   }
 
-  const filteredInvoices = invoices.filter((inv: any) => 
-    !companyFilter || inv.company_id === companyFilter
-  )
+  // Plus de filtrage société côté client, tout est déjà filtré côté serveur
+  const filteredInvoices = invoices
 
   const getStatusBadge = (invoice: any) => {
     const remaining = Number(invoice.total) - Number(invoice.paid)
@@ -51,25 +50,9 @@ export default function InvoicesList({ invoices: initialInvoices, companies, cus
 
   return (
     <>
+
       <div className="bg-white rounded-xl shadow-md p-6">
-        {/* Filtre */}
-        {companies.length > 1 && (
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Filtrer par société
-            </label>
-            <select
-              value={companyFilter}
-              onChange={(e) => setCompanyFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            >
-              <option value="">Toutes les sociétés</option>
-              {companies.map((company: any) => (
-                <option key={company.id} value={company.id}>{company.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
+        {/* Plus de filtre société ici, mono-société */}
 
         {/* Liste des factures */}
         {filteredInvoices.length === 0 ? (

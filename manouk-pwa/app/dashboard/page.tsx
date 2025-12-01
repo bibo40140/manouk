@@ -1,60 +1,39 @@
+
 import { createClient } from '@/lib/supabase/server'
 import StatsCards from '@/components/dashboard/StatsCards'
 import RevenueChart from '@/components/dashboard/RevenueChart'
 import RecentInvoices from '@/components/dashboard/RecentInvoices'
 import RecentPurchases from '@/components/dashboard/RecentPurchases'
-import CompanyFilter from '@/components/dashboard/CompanyFilter'
-import { cookies } from 'next/headers'
 
 export default async function DashboardPage() {
+
   const supabase = await createClient()
-  const { data: companies } = await supabase
-    .from('companies')
-    .select('*')
-    .order('name')
-
-  // Lire la société active depuis le cookie (set côté client par le hook)
-  let companyId = 'all'
-  let cookieStore
-  try {
-    cookieStore = await cookies()
-  } catch (e) {}
-  if (cookieStore) {
-    companyId = cookieStore.get('active_company_id')?.value || companies?.[0]?.id || 'all'
-  } else {
-    companyId = companies?.[0]?.id || 'all'
+  // Récupère la société du user connecté (mono-société)
+  const { data: companies } = await supabase.from('companies').select('*').order('name')
+  const company = companies?.[0]
+  if (!company) {
+    return <div className="p-8 text-red-600">Aucune société associée à votre compte.</div>
   }
+  const companyId = company.id
 
-  // Construire la query de base
-  let invoicesQuery = supabase
+  // Filtrer toutes les requêtes par company_id
+  const { data: invoices } = await supabase
     .from('invoices')
     .select('*, customer:customers(name), company:companies(name)')
+    .eq('company_id', companyId)
     .order('invoice_date', { ascending: false })
-
-  let purchasesQuery = supabase
+    .limit(5)
+  const { data: purchases } = await supabase
     .from('purchases')
     .select('*, supplier:suppliers(name), company:companies(name)')
+    .eq('company_id', companyId)
     .order('purchase_date', { ascending: false })
-
-  // Filtrer par société si nécessaire
-  if (companyId && companyId !== 'all') {
-    invoicesQuery = invoicesQuery.eq('company_id', companyId)
-    purchasesQuery = purchasesQuery.eq('company_id', companyId)
-  }
-
-  const [
-    { data: invoices },
-    { data: purchases }
-  ] = await Promise.all([
-    invoicesQuery.limit(5),
-    purchasesQuery.limit(5)
-  ])
+    .limit(5)
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">📊 Tableau de bord</h1>
-        <CompanyFilter companies={companies || []} />
       </div>
 
       <StatsCards companyId={companyId} />

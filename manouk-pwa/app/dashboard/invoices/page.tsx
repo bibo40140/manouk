@@ -1,34 +1,27 @@
+
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import InvoicesList from '@/components/invoices/InvoicesList'
 import InvoiceModal from '@/components/invoices/InvoiceModal'
-import { cookies } from 'next/headers'
 
 export default async function InvoicesPage() {
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-
   if (!user) {
     redirect('/login')
   }
-
-  const { data: companies } = await supabase.from('companies').select('*').order('name')
-  const { data: customers } = await supabase.from('customers').select('*').order('name')
-  const { data: products } = await supabase.from('products').select('*').order('name')
-
-  // Lire la société active depuis le cookie (set côté client par le hook)
-  let companyId = 'all'
-  let cookieStore
-  try {
-    cookieStore = await cookies()
-  } catch (e) {}
-  if (cookieStore) {
-    companyId = cookieStore.get('active_company_id')?.value || companies?.[0]?.id || 'all'
-  } else {
-    companyId = companies?.[0]?.id || 'all'
+  // Récupère la société du user connecté (mono-société)
+  const { data: companies } = await supabase.from('companies').select('*').eq('user_id', user.id).order('name')
+  const company = companies?.[0]
+  if (!company) {
+    return <div className="p-8 text-red-600">Aucune société associée à votre compte.</div>
   }
+  const companyId = company.id
 
-  // Toujours charger toutes les factures, filtrage côté client
+  // Filtrer toutes les requêtes par company_id
+  const { data: customers } = await supabase.from('customers').select('*').eq('company_id', companyId).order('name')
+  const { data: products } = await supabase.from('products').select('*').eq('company_id', companyId).order('name')
   const { data: invoices } = await supabase
     .from('invoices')
     .select(`
@@ -49,18 +42,19 @@ export default async function InvoicesPage() {
       company:companies(id, name, code),
       invoice_lines(*, product:products(name))
     `)
+    .eq('company_id', companyId)
     .order('date', { ascending: false })
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">📄 Factures</h1>
-        <InvoiceModal companies={companies || []} customers={customers || []} products={products || []} />
+        <InvoiceModal companies={[company]} customers={customers || []} products={products || []} />
       </div>
 
       <InvoicesList 
         invoices={invoices || []} 
-        companies={companies || []}
+        companies={[company]}
         customers={customers || []}
         products={products || []}
         defaultCompanyId={companyId}
