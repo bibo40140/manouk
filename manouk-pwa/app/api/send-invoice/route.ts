@@ -200,6 +200,15 @@ export async function POST(req: NextRequest) {
         text: text || 'Bonjour,\n\nVeuillez trouver vos factures en pièce jointe.\n\nCordialement.',
         attachments,
       });
+      // Marquer chaque facture comme envoyée
+      try {
+        const supabase = await createClient();
+        for (const inv of invoices) {
+          if (inv.invoice?.id) {
+            await supabase.from('invoices').update({ email_sent: true, email_sent_date: new Date().toISOString().slice(0,10) }).eq('id', inv.invoice.id);
+          }
+        }
+      } catch (e) { /* ignore erreur update */ }
       return NextResponse.json({ ok: true, info });
     } catch (err) {
       return NextResponse.json({ ok: false, error: 'Erreur envoi mail', details: String(err) }, { status: 500 });

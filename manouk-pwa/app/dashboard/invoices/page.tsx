@@ -32,7 +32,19 @@ export default async function InvoicesPage() {
   const { data: invoices } = await supabase
     .from('invoices')
     .select(`
-      *,
+      id,
+      invoice_number,
+      date,
+      total,
+      paid,
+      company_id,
+      customer_id,
+      email_sent,
+      email_sent_date,
+      urssaf_amount,
+      urssaf_declared_date,
+      urssaf_paid_date,
+      urssaf_paid_amount,
       customer:customers(id, name, email),
       company:companies(id, name, code),
       invoice_lines(*, product:products(name))

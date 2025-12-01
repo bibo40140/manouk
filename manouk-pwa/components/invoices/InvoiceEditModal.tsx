@@ -457,10 +457,14 @@ export default function InvoiceEditModal({ invoice, onClose }: any) {
         </div>
 
         <div className="p-6 border-t border-gray-200 flex flex-col gap-3">
-          <label className="inline-flex items-center mb-2">
-            <input type="checkbox" checked={sendMail} onChange={e => setSendMail(e.target.checked)} className="mr-2" />
-            Envoyer la facture par mail à la validation
-          </label>
+          {invoice?.email_sent ? (
+            <span className="text-gray-500 text-xs mb-2">✉️ Facture déjà envoyée{invoice.email_sent_date ? ` le ${new Date(invoice.email_sent_date).toLocaleDateString('fr-FR')}` : ''}</span>
+          ) : (
+            <label className="inline-flex items-center mb-2">
+              <input type="checkbox" checked={sendMail} onChange={e => setSendMail(e.target.checked)} className="mr-2" />
+              Envoyer la facture par mail à la validation
+            </label>
+          )}
           <button
             onClick={onClose}
             className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"

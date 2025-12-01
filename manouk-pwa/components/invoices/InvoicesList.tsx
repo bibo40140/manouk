@@ -1,19 +1,34 @@
-'use client'
 
-import { useState } from 'react'
+'use client'
+// Pour TypeScript : déclarer SMTP_CONFIG sur window
+declare global {
+  interface Window {
+    SMTP_CONFIG?: any;
+  }
+}
+
+import { useState, useEffect } from 'react'
+import ResendInvoiceMailModal from './ResendInvoiceMailModal'
 import InvoiceDetailsModal from './InvoiceDetailsModal'
 import PaymentModal from './PaymentModal'
 import InvoiceEditModal from './InvoiceEditModal'
 import UrssafDeclareModal from './UrssafDeclareModal'
 import UrssafPayModal from './UrssafPayModal'
 
-export default function InvoicesList({ invoices, companies, customers, products, defaultCompanyId = '' }: any) {
+export default function InvoicesList({ invoices: initialInvoices, companies, customers, products, defaultCompanyId = '' }: any) {
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
+  const [resendModal, setResendModal] = useState<{invoice: any, open: boolean} | null>(null)
   const [paymentInvoice, setPaymentInvoice] = useState<any>(null)
   const [editInvoice, setEditInvoice] = useState<any>(null)
   const [urssafDeclareInvoice, setUrssafDeclareInvoice] = useState<any>(null)
   const [urssafPayInvoice, setUrssafPayInvoice] = useState<any>(null)
   const [companyFilter, setCompanyFilter] = useState(defaultCompanyId === 'all' ? '' : defaultCompanyId)
+  const [invoices, setInvoices] = useState<any[]>(initialInvoices || [])
+
+  // Synchronise le state local avec les props à chaque changement
+  useEffect(() => {
+    setInvoices(initialInvoices || [])
+  }, [initialInvoices])
 
   const formatEuro = (value: number) => {
     return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(value)
@@ -145,30 +160,76 @@ export default function InvoicesList({ invoices, companies, customers, products,
                             >
                               ✏️ Modifier
                             </button>
+                            {invoice.email_sent ? (
+                              <>
+                                <span className="text-gray-500 text-xs">✉️ Facture déjà envoyée{invoice.email_sent_date ? ` le ${new Date(invoice.email_sent_date).toLocaleDateString('fr-FR')}` : ''}</span>
+                                <button
+                                  onClick={() => setResendModal({ invoice, open: true })}
+                                  className="ml-2 text-blue-600 hover:text-blue-800 text-xs font-medium underline"
+                                >
+                                  Renvoyer la facture
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => setResendModal({ invoice, open: true })}
+                                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                              >
+                                ✉️ Envoyer par mail
+                              </button>
+                            )}
+                                  {/* Modal pour modifier le corps du mail lors du renvoi */}
+                                  {resendModal?.open && (
+                                    <ResendInvoiceMailModal
+                                      isOpen={resendModal.open}
+                                      defaultBody={`Bonjour,\n\nVeuillez trouver votre facture en pièce jointe.\n\nCordialement.`}
+                                      onClose={() => setResendModal(null)}
+                                      onSend={async (body) => {
+                                        // Appel API pour renvoyer la facture avec le corps personnalisé
+                                        const res = await fetch('/api/send-invoices', {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({
+                                            smtpConfig: window.SMTP_CONFIG || {},
+                                            invoices: [{
+                                              id: resendModal.invoice.id,
+                                              to: resendModal.invoice.customer?.email,
+                                              subject: `Votre facture ${resendModal.invoice.invoice_number}`,
+                                              text: body,
+                                              html: body.replace(/\n/g, '<br>'),
+                                              attachments: [] // L'API doit générer et attacher le PDF
+                                            }]
+                                          })
+                                        });
+                                        if (res.ok) {
+                                          alert('Facture envoyée !');
+                                          setInvoices((prev: any[]) => prev.map(inv => inv.id === resendModal.invoice.id ? { ...inv, email_sent: true, email_sent_date: new Date().toISOString() } : inv));
+                                          setResendModal(null);
+                                        } else {
+                                          alert('Erreur lors de l\'envoi');
+                                        }
+                                      }}
+                                    />
+                                  )}
                             <button
                               onClick={async () => {
-                                // Appel API d'envoi
-                                const res = await fetch('/api/send-invoices', {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({
-                                    smtpConfig: window.SMTP_CONFIG || {}, // à adapter selon ton stockage config
-                                    invoices: [{
-                                      id: invoice.id,
-                                      to: invoice.customer?.email,
-                                      subject: `Votre facture ${invoice.invoice_number}`,
-                                      text: `Bonjour,\nVeuillez trouver votre facture en pièce jointe.`,
-                                      html: `<p>Bonjour,<br>Veuillez trouver votre facture en pièce jointe.</p>`,
-                                      attachments: [] // à compléter avec PDF/HTML si besoin
-                                    }]
-                                  })
-                                });
-                                if (res.ok) alert('Facture envoyée !');
-                                else alert('Erreur lors de l\'envoi');
+                                if (window.confirm('Supprimer cette facture ? Cela restaurera le stock et supprimera les paiements et l\'URSSAF lié.')) {
+                                  const res = await fetch('/api/delete-invoice', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ id: invoice.id })
+                                  });
+                                  if (res.ok) {
+                                    setInvoices((prev: any[]) => prev.filter(inv => inv.id !== invoice.id));
+                                  } else {
+                                    const data = await res.json().catch(() => ({}));
+                                    alert('Erreur lors de la suppression : ' + (data?.error || 'inconnue'));
+                                  }
+                                }
                               }}
-                              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                              className="text-red-600 hover:text-red-800 text-sm font-medium"
                             >
-                              ✉️ Envoyer par mail
+                              🗑️ Supprimer
                             </button>
                             {remaining > 0 && (
                               <button

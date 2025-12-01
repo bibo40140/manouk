@@ -27,6 +27,7 @@ export default function InvoiceModal({ companies, customers, products }: any) {
   const [lines, setLines] = useState<InvoiceLine[]>([]);
   const [mailBody, setMailBody] = useState('Bonjour,\n\nVeuillez trouver vos factures en pièce jointe.\n\nCordialement.');
 
+  const [pendingAction, setPendingAction] = useState<'create' | 'create-send' | null>(null);
   // ...le reste du code inchangé...
 
   const addLine = () => {
@@ -84,9 +85,7 @@ export default function InvoiceModal({ companies, customers, products }: any) {
       } else if (field === 'splits') {
         // On repart de la version la plus récente de la ligne
         updated.splits = value;
-        if (!updated.product_id && lastProductIdRef.current) {
-          updated.product_id = lastProductIdRef.current;
-        }
+        // plus besoin de fallback sur lastProductIdRef
       }
       newLines[index] = updated;
       return newLines;
@@ -94,12 +93,10 @@ export default function InvoiceModal({ companies, customers, products }: any) {
   }
 
   // Effet pour charger les splits quand un produit est sélectionné
-  const lastProductIdRef = useRef<string | null>(null)
   const handleProductChange = async (index: number, productId: string) => {
     updateLine(index, 'product_id', productId);
-    if (productId && productId !== lastProductIdRef.current) {
-      lastProductIdRef.current = productId;
-      // Attendre que le state soit bien mis à jour avant de charger les splits
+    if (productId) {
+      // Toujours charger les splits pour ce produit, même si déjà sélectionné ailleurs
       setTimeout(async () => {
         const splits = await loadSplitsForProduct(productId);
         updateLine(index, 'splits', splits);
@@ -111,6 +108,8 @@ export default function InvoiceModal({ companies, customers, products }: any) {
     return lines.reduce((sum, line) => sum + line.total, 0)
   }
 
+  // Génération automatique du numéro de facture
+  // (le bloc await fetch a été déplacé dans handleSubmit)
   // Génération automatique du numéro de facture
   useEffect(() => {
     const generateInvoiceNumber = async () => {
@@ -276,7 +275,7 @@ export default function InvoiceModal({ companies, customers, products }: any) {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-6">
+            <form id="invoice-form" onSubmit={handleSubmit} className="p-6 space-y-6">
               {/* En-tête de facture */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
@@ -456,21 +455,41 @@ export default function InvoiceModal({ companies, customers, products }: any) {
                 <div className="text-xs text-gray-500 mt-1">Ce texte sera utilisé comme corps du mail envoyé au client.</div>
               </div>
               {/* Actions */}
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <button
-                  type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
-                >
-                  {loading ? 'Création...' : 'Créer la facture'}
-                </button>
+              <div className="flex flex-col md:flex-row justify-end gap-3 pt-4 border-t relative">
+                {loading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-70 z-10">
+                    <svg className="animate-spin h-7 w-7 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                    </svg>
+                  </div>
+                )}
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsOpen(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                    disabled={loading}
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => { if (!loading) { setPendingAction('create'); setTimeout(() => { (document.activeElement as HTMLElement)?.blur(); }, 0); setTimeout(() => { (document.getElementById('invoice-form') as HTMLFormElement)?.requestSubmit(); }, 0); }}}
+                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                  >
+                    {loading && pendingAction === 'create' ? 'Création...' : 'Créer la facture'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => { if (!loading) { setPendingAction('create-send'); setTimeout(() => { (document.activeElement as HTMLElement)?.blur(); }, 0); setTimeout(() => { (document.getElementById('invoice-form') as HTMLFormElement)?.requestSubmit(); }, 0); }}}
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                  >
+                    {loading && pendingAction === 'create-send' ? 'Envoi...' : 'Créer et envoyer par mail'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
