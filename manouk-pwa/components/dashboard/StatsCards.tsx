@@ -4,7 +4,7 @@ export default async function StatsCards({ companyId }: { companyId?: string }) 
   const supabase = await createClient()
 
   // Construire les queries avec filtre optionnel
-  let invoicesQuery = supabase.from('invoices').select('total, paid, urssaf_amount, urssaf_paid_amount')
+  let invoicesQuery = supabase.from('invoices').select('total, paid, urssaf_amount, urssaf_paid_amount, urssaf_paid_date')
   let purchasesQuery = supabase.from('purchases').select('quantity, unit_cost, paid')
 
   if (companyId && companyId !== 'all') {
