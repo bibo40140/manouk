@@ -1,28 +1,47 @@
-
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import InvoicesList from '@/components/invoices/InvoicesList'
 import InvoiceModal from '@/components/invoices/InvoiceModal'
+import CompanyFilter from '@/components/dashboard/CompanyFilter'
 
 export default async function InvoicesPage() {
-
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     redirect('/login')
   }
-  // Récupère la société du user connecté (mono-société)
-  const { data: companies } = await supabase.from('companies').select('*').eq('user_id', user.id).order('name')
-  const company = companies?.[0]
-  if (!company) {
+  const isAdmin = user?.email === 'fabien.hicauber@gmail.com'
+  const client = isAdmin ? await createServiceRoleClient() : supabase
+
+  const { data: companies } = await client.from('companies').select('id, name, code').order('name')
+  if (!isAdmin && (!companies || companies.length === 0)) {
     return <div className="p-8 text-red-600">Aucune société associée à votre compte.</div>
   }
-  const companyId = company.id
 
-  // Filtrer toutes les requêtes par company_id
-  const { data: customers } = await supabase.from('customers').select('*').eq('company_id', companyId).order('name')
-  const { data: products } = await supabase.from('products').select('*').eq('company_id', companyId).order('name')
-  const { data: invoices } = await supabase
+  const cookieCompany = (await cookies()).get('activeCompanyId')?.value || null
+  let companyId: string | null = null
+  if (cookieCompany && cookieCompany !== 'all' && companies) {
+    const found = companies.find(c => c.id === cookieCompany)
+    companyId = found ? found.id : null
+  } else if (cookieCompany === 'all') {
+    companyId = null
+  } else {
+    if (companies && companies.length === 1) companyId = companies[0].id
+    else companyId = null
+  }
+  // Admin: par défaut voit tout, mais s'il a sélectionné une société via le cookie, on respecte ce filtre
+
+  let customersQuery = client.from('customers').select('*').order('name')
+  let productsQuery = client.from('products').select('*').order('name')
+  if (companyId) {
+    customersQuery = customersQuery.eq('company_id', companyId)
+    productsQuery = productsQuery.eq('company_id', companyId)
+  }
+  const { data: customers } = await customersQuery
+  const { data: products } = await productsQuery
+
+  let invoicesQuery = client
     .from('invoices')
     .select(`
       id,
@@ -42,22 +61,24 @@ export default async function InvoicesPage() {
       company:companies(id, name, code),
       invoice_lines(*, product:products(name))
     `)
-    .eq('company_id', companyId)
     .order('date', { ascending: false })
+  if (companyId) invoicesQuery = invoicesQuery.eq('company_id', companyId)
+  const { data: invoices } = await invoicesQuery
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">📄 Factures</h1>
-        <InvoiceModal companies={[company]} customers={customers || []} products={products || []} />
+        <CompanyFilter companies={companies || []} canSeeAllOverride={isAdmin || (companies ? companies.length > 1 : false)} />
+        <InvoiceModal companies={companies || []} customers={customers || []} products={products || []} />
       </div>
 
       <InvoicesList 
         invoices={invoices || []} 
-        companies={[company]}
+        companies={companies || []}
         customers={customers || []}
         products={products || []}
-        defaultCompanyId={companyId}
+        defaultCompanyId={companyId || undefined}
       />
     </div>
   )

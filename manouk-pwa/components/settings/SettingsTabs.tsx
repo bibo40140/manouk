@@ -6,8 +6,9 @@ import ProductsTab from './ProductsTab'
 import RawMaterialsTab from './RawMaterialsTab'
 import CustomersTab from './CustomersTab'
 import SmtpSettings from './SmtpSettings'
+import AdminTab from './AdminTab'
 
-type TabName = 'companies' | 'products' | 'materials' | 'customers' | 'smtp';
+type TabName = 'companies' | 'products' | 'materials' | 'customers' | 'smtp' | 'admin';
 
 export default function SettingsTabs({ companies, products, rawMaterials, customers }: any) {
   const [activeTab, setActiveTab] = useState<TabName>('companies');
@@ -17,6 +18,7 @@ export default function SettingsTabs({ companies, products, rawMaterials, custom
     { id: 'materials' as TabName, label: '🧱 Matières premières', count: rawMaterials.length },
     { id: 'customers' as TabName, label: '👥 Clients', count: customers.length },
     { id: 'smtp' as TabName, label: '✉️ Email', count: 0 },
+    { id: 'admin' as TabName, label: '🛡️ Admin', count: 0 },
   ];
 
   return (
@@ -52,6 +54,7 @@ export default function SettingsTabs({ companies, products, rawMaterials, custom
         {activeTab === 'materials' && <RawMaterialsTab rawMaterials={rawMaterials} companies={companies} />}
         {activeTab === 'customers' && <CustomersTab customers={customers} companies={companies} />}
         {activeTab === 'smtp' && <SmtpSettings />}
+        {activeTab === 'admin' && <AdminTab />}
       </div>
     </div>
   )

@@ -1,45 +1,67 @@
 
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceRoleClient } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
 import StatsCards from '@/components/dashboard/StatsCards'
 import RevenueChart from '@/components/dashboard/RevenueChart'
 import RecentInvoices from '@/components/dashboard/RecentInvoices'
 import RecentPurchases from '@/components/dashboard/RecentPurchases'
+import CompanyFilter from '@/components/dashboard/CompanyFilter'
 
 export default async function DashboardPage() {
 
   const supabase = await createClient()
-  // Récupère la société du user connecté (mono-société)
-  const { data: companies } = await supabase.from('companies').select('*').order('name')
-  const company = companies?.[0]
-  if (!company) {
+  // Liste des sociétés autorisées (RLS limite automatiquement)
+  const { data: { user } } = await supabase.auth.getUser()
+  const isAdmin = user?.email === 'fabien.hicauber@gmail.com'
+  const client = isAdmin ? await createServiceRoleClient() : supabase
+  const { data: companies } = await client.from('companies').select('id, name').order('name')
+  const cookieCompany = (await cookies()).get('activeCompanyId')?.value || null
+  let companyId: string | null = null
+  if (cookieCompany && cookieCompany !== 'all') {
+    const found = companies?.find(c => c.id === cookieCompany)
+    companyId = found ? found.id : null
+  } else if (cookieCompany === 'all') {
+    companyId = null
+  } else {
+    // Pas de cookie: si 1 société, on filtre; si >1, on affiche tout
+    if (companies && companies.length === 1) companyId = companies[0].id
+    else companyId = null
+  }
+  // Si aucune société accessible
+  // isAdmin computed above
+  if (!isAdmin && (!companies || companies.length === 0)) {
     return <div className="p-8 text-red-600">Aucune société associée à votre compte.</div>
   }
-  const companyId = company.id
 
   // Filtrer toutes les requêtes par company_id
-  const { data: invoices } = await supabase
+  let invoicesQuery = client
     .from('invoices')
     .select('*, customer:customers(name), company:companies(name)')
-    .eq('company_id', companyId)
     .order('invoice_date', { ascending: false })
     .limit(5)
-  const { data: purchases } = await supabase
+  let purchasesQuery = client
     .from('purchases')
     .select('*, supplier:suppliers(name), company:companies(name)')
-    .eq('company_id', companyId)
     .order('purchase_date', { ascending: false })
     .limit(5)
+  if (companyId) {
+    invoicesQuery = invoicesQuery.eq('company_id', companyId)
+    purchasesQuery = purchasesQuery.eq('company_id', companyId)
+  }
+  const { data: invoices } = await invoicesQuery
+  const { data: purchases } = await purchasesQuery
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">📊 Tableau de bord</h1>
+        <CompanyFilter companies={companies || []} canSeeAllOverride={true} />
       </div>
 
-      <StatsCards companyId={companyId} />
+      <StatsCards companyId={companyId ?? 'all'} />
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <RevenueChart companyId={companyId} />
+        <RevenueChart companyId={companyId ?? 'all'} />
         <div className="bg-white rounded-xl shadow-md p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             💰 Rentabilité par produit (Top 10)

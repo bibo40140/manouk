@@ -1,11 +1,14 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceRoleClient } from '@/lib/supabase/server'
 
 export default async function StatsCards({ companyId }: { companyId?: string }) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const isAdmin = user?.email === 'fabien.hicauber@gmail.com'
+  const client = isAdmin ? await createServiceRoleClient() : supabase
 
   // Construire les queries avec filtre optionnel
-  let invoicesQuery = supabase.from('invoices').select('total, paid, urssaf_amount, urssaf_paid_amount, urssaf_paid_date')
-  let purchasesQuery = supabase.from('purchases').select('quantity, unit_cost, paid')
+  let invoicesQuery = client.from('invoices').select('total, paid, urssaf_amount, urssaf_paid_amount, urssaf_paid_date')
+  let purchasesQuery = client.from('purchases').select('quantity, unit_cost, paid')
 
   if (companyId && companyId !== 'all') {
     invoicesQuery = invoicesQuery.eq('company_id', companyId)
