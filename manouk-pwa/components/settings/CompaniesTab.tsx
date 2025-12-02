@@ -1,3 +1,4 @@
+  "use client"
   // Fonction pour supprimer une société
   const handleDelete = async (companyId: string) => {
     if (!window.confirm('Supprimer cette société ? Cette action est irréversible.')) return;
@@ -16,9 +17,6 @@
     }
   }
 
-  'use client'
-
-  // ...existing code...
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
