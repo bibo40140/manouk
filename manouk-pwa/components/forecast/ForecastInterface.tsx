@@ -57,7 +57,7 @@ export default function ForecastInterface({ products, rawMaterials }: any) {
 
     // Calculer pour chaque mois
     const monthKeys = Object.keys(salesByMonth).sort()
-    const simulationResults = []
+const simulationResults: any[] = []
     let cumulativeBalance = 0
     let totalRevenue = 0
     let totalExpenses = 0
