@@ -425,15 +425,15 @@ export default function ForecastSimulator({ products, rawMaterials, splits, comp
               <div className="space-y-6">
                 {companies.map((company: any) => {
                   // Calculer les totaux pour cette société
-                  const companyData = simulation.map(month => 
+                  const companyData = simulation.map((month: any) => 
                     month.byCompany.find((c: any) => c.companyName === company.name) || {
                       revenue: 0, materialCosts: 0, urssaf: 0, totalExpense: 0, netResult: 0, balance: 0
                     }
                   )
                   
-                  const totalRevenue = companyData.reduce((sum, m) => sum + m.revenue, 0)
-                  const totalExpense = companyData.reduce((sum, m) => sum + m.totalExpense, 0)
-                  const totalResult = companyData.reduce((sum, m) => sum + m.netResult, 0)
+                  const totalRevenue = companyData.reduce((sum: number, m: any) => sum + m.revenue, 0)
+                  const totalExpense = companyData.reduce((sum: number, m: any) => sum + m.totalExpense, 0)
+                  const totalResult = companyData.reduce((sum: number, m: any) => sum + m.netResult, 0)
                   const finalBalance = companyData[companyData.length - 1]?.balance || 0
 
                   // Ne pas afficher la société si elle n'a aucun CA
