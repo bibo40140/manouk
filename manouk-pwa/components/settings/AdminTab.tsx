@@ -22,6 +22,8 @@ export default function AdminTab() {
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
   const [editingCompanyId, setEditingCompanyId] = useState<string>('')
+  const [changingPasswordUserId, setChangingPasswordUserId] = useState<string | null>(null)
+  const [newPassword, setNewPassword] = useState('')
 
   const loadData = async () => {
     console.log('loadData appelé')
@@ -178,6 +180,34 @@ export default function AdminTab() {
     }
   }
 
+  const changePassword = async (userId: string) => {
+    if (!newPassword || newPassword.length < 6) {
+      setMessage({ text: 'Le mot de passe doit contenir au moins 6 caractères', type: 'error' })
+      return
+    }
+    
+    setLoading(true)
+    setMessage(null)
+    try {
+      const res = await fetch('/api/admin/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, newPassword })
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Erreur API')
+      
+      setMessage({ text: json.message, type: 'success' })
+      setChangingPasswordUserId(null)
+      setNewPassword('')
+    } catch (e: any) {
+      console.error('Erreur changePassword:', e)
+      setMessage({ text: 'Erreur: ' + e.message, type: 'error' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (!isAdmin) {
     return null
   }
@@ -279,7 +309,33 @@ export default function AdminTab() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-3">
-                        {editingUserId === user.id ? (
+                        {changingPasswordUserId === user.id ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="password"
+                              value={newPassword}
+                              onChange={(e) => setNewPassword(e.target.value)}
+                              placeholder="Nouveau mot de passe"
+                              className="px-2 py-1 text-sm border border-gray-300 rounded"
+                            />
+                            <button
+                              onClick={() => changePassword(user.id)}
+                              className="text-green-600 hover:text-green-800 text-sm font-medium"
+                              disabled={loading || !newPassword}
+                            >
+                              💾
+                            </button>
+                            <button
+                              onClick={() => {
+                                setChangingPasswordUserId(null)
+                                setNewPassword('')
+                              }}
+                              className="text-gray-600 hover:text-gray-800 text-sm font-medium"
+                            >
+                              ✖️
+                            </button>
+                          </div>
+                        ) : editingUserId === user.id ? (
                           <>
                             <button
                               onClick={() => {
@@ -313,10 +369,19 @@ export default function AdminTab() {
                               {user.companies.length > 0 ? '✏️ Modifier société' : '➕ Ajouter société'}
                             </button>
                             <button
+                              onClick={() => {
+                                setChangingPasswordUserId(user.id)
+                                setNewPassword('')
+                              }}
+                              className="text-orange-600 hover:text-orange-800 text-sm font-medium"
+                            >
+                              🔑 Mot de passe
+                            </button>
+                            <button
                               onClick={() => deleteUser(user.id, user.email)}
                               className="text-red-600 hover:text-red-800 text-sm font-medium"
                             >
-                              🗑️ Supprimer utilisateur
+                              🗑️ Supprimer
                             </button>
                           </>
                         )}
