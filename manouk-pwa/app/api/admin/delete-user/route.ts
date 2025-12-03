@@ -46,8 +46,8 @@ export async function POST(req: Request) {
     }
     console.log('[delete-user] user_companies deleted successfully')
 
-    // Désactiver l'utilisateur en supprimant toutes ses sessions et en le bloquant
-    console.log('[delete-user] Disabling auth user...')
+    // Supprimer l'utilisateur de auth.users
+    console.log('[delete-user] Deleting auth user...')
     
     // Déconnecter l'utilisateur (supprimer toutes ses sessions)
     const { error: signOutError } = await supabase.auth.admin.signOut(userId)
@@ -55,9 +55,8 @@ export async function POST(req: Request) {
       console.error('[delete-user] Error signing out user:', signOutError)
     }
     
-    // Tenter de supprimer l'utilisateur
-    // Si ça échoue à cause de contraintes FK, on le désactive à la place
-    const { error: deleteError } = await supabase.auth.admin.deleteUser(userId, true) // shouldSoftDelete = true
+    // Supprimer vraiment l'utilisateur (pas de soft delete)
+    const { error: deleteError } = await supabase.auth.admin.deleteUser(userId)
     
     if (deleteError) {
       console.error('[delete-user] Cannot delete user (has related data), will update email instead:', deleteError)

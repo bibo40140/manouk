@@ -26,33 +26,19 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: ucError.message }, { status: 500 })
     }
 
-    // Combiner les données et filtrer les utilisateurs supprimés/anonymisés
-    const usersWithCompanies = users
-      .filter(user => {
-        // Exclure les utilisateurs sans email
-        if (!user.email) return false
-        
-        // Exclure les utilisateurs anonymisés (email deleted_xxx@deleted.local)
-        const isDeleted = user.email.startsWith('deleted_') && user.email.endsWith('@deleted.local')
-        if (isDeleted) return false
-        
-        // Exclure les utilisateurs marqués comme supprimés dans les métadonnées
-        if (user.user_metadata?.deleted === true) return false
-        
-        return true
-      })
-      .map(user => {
-        const associations = userCompanies?.filter(uc => uc.user_id === user.id) || []
-        return {
-          id: user.id,
-          email: user.email,
-          created_at: user.created_at,
-          companies: associations.map(a => ({
-            id: a.company_id,
-            name: (a.company as any)?.name || 'N/A'
-          }))
-        }
-      })
+    // Combiner les données
+    const usersWithCompanies = users.map(user => {
+      const associations = userCompanies?.filter(uc => uc.user_id === user.id) || []
+      return {
+        id: user.id,
+        email: user.email,
+        created_at: user.created_at,
+        companies: associations.map(a => ({
+          id: a.company_id,
+          name: (a.company as any)?.name || 'N/A'
+        }))
+      }
+    })
 
     return NextResponse.json({ users: usersWithCompanies })
   } catch (e: any) {
