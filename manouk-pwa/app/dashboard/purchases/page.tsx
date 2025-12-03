@@ -53,15 +53,17 @@ export default async function PurchasesPage() {
   const { data: purchases } = await purchasesQuery
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">🛒 Achats</h1>
-        <CompanyFilter companies={companies || []} canSeeAllOverride={isAdmin || (companies ? companies.length > 1 : false)} />
-        <PurchaseModal 
-          companies={companies || []} 
-          suppliers={suppliers || []} 
-          rawMaterials={rawMaterials || []} 
-        />
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-center">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">🛒 Achats</h1>
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center">
+          <CompanyFilter companies={companies || []} canSeeAllOverride={isAdmin || (companies ? companies.length > 1 : false)} />
+          <PurchaseModal 
+            companies={companies || []} 
+            suppliers={suppliers || []} 
+            rawMaterials={rawMaterials || []} 
+          />
+        </div>
       </div>
 
       <PurchasesList 

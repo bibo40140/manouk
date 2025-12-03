@@ -24,8 +24,8 @@ export default async function SettingsPage() {
   const { data: suppliers } = await client.from('suppliers').select('*, company:companies(name)').order('name')
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900">⚙️ Paramètres</h1>
+    <div className="space-y-4 sm:space-y-6">
+      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">⚙️ Paramètres</h1>
       <SettingsTabs 
         companies={companies || []}
         products={products || []}

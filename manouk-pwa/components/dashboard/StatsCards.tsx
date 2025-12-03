@@ -48,14 +48,14 @@ export default async function StatsCards({ companyId }: { companyId?: string }) 
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-3 sm:gap-4">
       {stats.map((stat) => (
         <div
           key={stat.label}
-          className={`${stat.bg} ${stat.border} border-l-4 rounded-lg p-4 hover:shadow-lg transition-all`}
+          className={`${stat.bg} ${stat.border} border-l-4 rounded-lg p-3 sm:p-4 hover:shadow-lg transition-all`}
         >
-          <div className="text-sm font-medium text-gray-600">{stat.label}</div>
-          <div className={`text-2xl font-bold ${stat.color} mt-1`}>
+          <div className="text-xs sm:text-sm font-medium text-gray-600">{stat.label}</div>
+          <div className={`text-lg sm:text-2xl font-bold ${stat.color} mt-1`}>
             {formatEuro(stat.value)}
           </div>
         </div>

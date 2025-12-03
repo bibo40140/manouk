@@ -1,12 +1,13 @@
 {
-  "name": "Manouk Gestion",
+  "name": "Manouk - Gestion d'entreprise",
   "short_name": "Manouk",
-  "description": "Application de gestion pour auto-entrepreneurs - Factures, trésorerie, URSSAF",
+  "description": "Application de gestion pour entreprises - Factures, Achats, Trésorerie prévisionnelle, URSSAF",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#0b7bbf",
-  "orientation": "portrait-primary",
+  "theme_color": "#667eea",
+  "orientation": "any",
+  "scope": "/",
   "icons": [
     {
       "src": "/icon-192.png",
@@ -19,6 +20,14 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot1.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
     }
   ]
 }

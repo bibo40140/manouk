@@ -66,11 +66,13 @@ export default async function InvoicesPage() {
   const { data: invoices } = await invoicesQuery
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">📄 Factures</h1>
-        <CompanyFilter companies={companies || []} canSeeAllOverride={isAdmin || (companies ? companies.length > 1 : false)} />
-        <InvoiceModal companies={companies || []} customers={customers || []} products={products || []} />
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-center">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">📄 Factures</h1>
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center">
+          <CompanyFilter companies={companies || []} canSeeAllOverride={isAdmin || (companies ? companies.length > 1 : false)} />
+          <InvoiceModal companies={companies || []} customers={customers || []} products={products || []} />
+        </div>
       </div>
 
       <InvoicesList 

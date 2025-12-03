@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notice d'utilisation - Application Manouk</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .header .url {
+            font-size: 1.2em;
+            background: rgba(255,255,255,0.2);
+            padding: 10px 20px;
+            border-radius: 25px;
+            display: inline-block;
+            margin-top: 15px;
+        }
+        
+        .header .url a {
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .section {
+            margin-bottom: 50px;
+        }
+        
+        .section-title {
+            font-size: 1.8em;
+            color: #667eea;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+            display: flex;
+            align-items: center;
+        }
+        
+        .section-title .emoji {
+            margin-right: 15px;
+            font-size: 1.2em;
+        }
+        
+        .subsection {
+            margin: 25px 0;
+        }
+        
+        .subsection-title {
+            font-size: 1.3em;
+            color: #764ba2;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        
+        .steps {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        
+        .steps ol {
+            margin-left: 20px;
+        }
+        
+        .steps li {
+            margin: 10px 0;
+            padding-left: 10px;
+        }
+        
+        .steps strong {
+            color: #667eea;
+        }
+        
+        .note {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        
+        .note strong {
+            color: #856404;
+        }
+        
+        .feature-box {
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #667eea;
+        }
+        
+        .feature-box h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+        
+        ul {
+            margin-left: 30px;
+            margin-top: 10px;
+        }
+        
+        ul li {
+            margin: 8px 0;
+        }
+        
+        .icon-list {
+            list-style: none;
+            margin-left: 0;
+        }
+        
+        .icon-list li:before {
+            content: "✓ ";
+            color: #28a745;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .action-button {
+            background: #667eea;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-weight: 600;
+            display: inline-block;
+            margin: 5px 0;
+        }
+        
+        .footer {
+            background: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            color: #6c757d;
+        }
+        
+        .footer strong {
+            color: #333;
+        }
+        
+        .access-levels {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .access-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .access-card h4 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+        
+        .admin-only {
+            background: #ffe5e5;
+            border-color: #ff6b6b;
+        }
+        
+        .admin-only h4 {
+            color: #ff6b6b;
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 1.8em;
+            }
+            
+            .access-levels {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .quick-links {
+            background: #e7f3ff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .quick-links h3 {
+            color: #0066cc;
+            margin-bottom: 15px;
+        }
+        
+        .quick-links a {
+            display: inline-block;
+            margin: 5px 10px 5px 0;
+            padding: 8px 15px;
+            background: white;
+            color: #0066cc;
+            text-decoration: none;
+            border-radius: 5px;
+            border: 1px solid #0066cc;
+            transition: all 0.3s;
+        }
+        
+        .quick-links a:hover {
+            background: #0066cc;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📱 Application Manouk</h1>
+            <p style="font-size: 1.1em; margin-top: 10px;">Guide d'utilisation complet</p>
+            <div class="url">
+                <a href="https://manouk.vercel.app" target="_blank">🌐 https://manouk.vercel.app</a>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="quick-links">
+                <h3>🔗 Accès rapide</h3>
+                <a href="#connexion">Connexion</a>
+                <a href="#dashboard">Dashboard</a>
+                <a href="#factures">Factures</a>
+                <a href="#achats">Achats</a>
+                <a href="#previsionnel">Prévisionnel</a>
+                <a href="#parametres">Paramètres</a>
+                <a href="#droits">Droits d'accès</a>
+            </div>
+            
+            <div id="connexion" class="section">
+                <h2 class="section-title"><span class="emoji">🔐</span> Connexion</h2>
+                <div class="steps">
+                    <ol>
+                        <li>Rendez-vous sur <a href="https://manouk.vercel.app" target="_blank">https://manouk.vercel.app</a></li>
+                        <li>Entrez votre <strong>adresse email</strong></li>
+                        <li>Entrez votre <strong>mot de passe</strong></li>
+                        <li>Cliquez sur <span class="action-button">Se connecter</span></li>
+                    </ol>
+                </div>
+                <div class="note">
+                    <strong>Note :</strong> Si vous n'avez pas encore de compte, contactez l'administrateur pour qu'il vous en crée un.
+                </div>
+            </div>
+            
+            <div id="dashboard" class="section">
+                <h2 class="section-title"><span class="emoji">📊</span> Dashboard (Tableau de bord)</h2>
+                <p>Page d'accueil affichant une vue d'ensemble de votre activité :</p>
+                <ul>
+                    <li><strong>Statistiques clés :</strong> Chiffre d'affaires, bénéfice net, dépenses, marge</li>
+                    <li><strong>Graphique de revenus :</strong> Évolution mensuelle de vos revenus</li>
+                    <li><strong>Factures récentes :</strong> Liste des dernières factures émises</li>
+                    <li><strong>Achats récents :</strong> Liste des derniers achats effectués</li>
+                </ul>
+                <div class="feature-box">
+                    <h4>🏢 Filtre par société</h4>
+                    <p>Utilisez le sélecteur en haut pour filtrer les données par société ou afficher "Toutes les sociétés"</p>
+                </div>
+            </div>
+            
+            <div id="factures" class="section">
+                <h2 class="section-title"><span class="emoji">📄</span> Factures</h2>
+                <p>Gérez vos factures clients de manière complète.</p>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">📋 Consulter les factures</h3>
+                    <ul>
+                        <li>Liste de toutes vos factures avec numéro, client, montant, date et statut</li>
+                        <li>Utilisez les filtres pour trouver rapidement une facture</li>
+                        <li>Cliquez sur une facture pour voir les détails</li>
+                    </ul>
+                </div>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">➕ Créer une facture</h3>
+                    <div class="steps">
+                        <ol>
+                            <li>Cliquez sur <span class="action-button">+ Nouvelle facture</span></li>
+                            <li>Sélectionnez le <strong>client</strong></li>
+                            <li>Sélectionnez la <strong>société</strong> émettrice</li>
+                            <li>Choisissez le <strong>produit</strong></li>
+                            <li>Indiquez la <strong>quantité</strong></li>
+                            <li>Ajoutez une <strong>description</strong> (optionnel)</li>
+                            <li>Cliquez sur <span class="action-button">Créer la facture</span></li>
+                        </ol>
+                    </div>
+                </div>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">✏️ Modifier une facture</h3>
+                    <div class="steps">
+                        <ol>
+                            <li>Cliquez sur l'icône de modification (crayon) ✏️</li>
+                            <li>Modifiez les informations souhaitées</li>
+                            <li>Cliquez sur <span class="action-button">Enregistrer</span></li>
+                        </ol>
+                    </div>
+                </div>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">📧 Envoyer une facture par email</h3>
+                    <div class="steps">
+                        <ol>
+                            <li>Cliquez sur l'icône d'envoi (enveloppe) ✉️</li>
+                            <li>Vérifiez l'adresse email du destinataire</li>
+                            <li>Cliquez sur <span class="action-button">Envoyer</span></li>
+                        </ol>
+                    </div>
+                </div>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">💶 Enregistrer un paiement</h3>
+                    <div class="steps">
+                        <ol>
+                            <li>Cliquez sur l'icône de paiement (€) 💰</li>
+                            <li>Sélectionnez le <strong>mode de paiement</strong> (Virement, Chèque, Espèces, Carte bancaire)</li>
+                            <li>Indiquez la <strong>date de paiement</strong></li>
+                            <li>Ajoutez une <strong>référence</strong> (optionnel)</li>
+                            <li>Cliquez sur <span class="action-button">Enregistrer le paiement</span></li>
+                        </ol>
+                    </div>
+                </div>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">🏛️ Gestion URSSAF</h3>
+                    <ul>
+                        <li><strong>Déclarer à l'URSSAF :</strong> Marquez une facture comme déclarée à l'URSSAF</li>
+                        <li><strong>Payer l'URSSAF :</strong> Enregistrez le paiement des cotisations URSSAF</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div id="achats" class="section">
+                <h2 class="section-title"><span class="emoji">🛒</span> Achats</h2>
+                <p>Gérez vos achats de matières premières.</p>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">📋 Consulter les achats</h3>
+                    <ul>
+                        <li>Liste de tous vos achats avec date, matière première, quantité, prix et société</li>
+                        <li>Utilisez les filtres pour rechercher un achat spécifique</li>
+                    </ul>
+                </div>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">➕ Créer un achat</h3>
+                    <div class="steps">
+                        <ol>
+                            <li>Cliquez sur <span class="action-button">+ Nouvel achat</span></li>
+                            <li>Sélectionnez la <strong>matière première</strong></li>
+                            <li>Sélectionnez la <strong>société</strong> acheteuse</li>
+                            <li>Indiquez la <strong>quantité</strong></li>
+                            <li>Entrez le <strong>prix unitaire</strong></li>
+                            <li>Sélectionnez la <strong>date d'achat</strong></li>
+                            <li>Cliquez sur <span class="action-button">Créer</span></li>
+                        </ol>
+                    </div>
+                </div>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">✏️ Modifier ou supprimer un achat</h3>
+                    <ul>
+                        <li>Cliquez sur l'icône de modification (crayon) ✏️ pour éditer</li>
+                        <li>Cliquez sur l'icône de suppression (poubelle) 🗑️ pour supprimer</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div id="previsionnel" class="section">
+                <h2 class="section-title"><span class="emoji">📈</span> Prévisionnel</h2>
+                <p>Outil de simulation financière pour anticiper votre activité.</p>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">🎯 Utilisation du simulateur</h3>
+                    <div class="steps">
+                        <ol>
+                            <li><strong>Sélectionnez les produits</strong> que vous prévoyez de vendre (cochez les cases)</li>
+                            <li><strong>Indiquez les quantités mensuelles</strong> pour chaque produit sur 12 mois</li>
+                            <li>Les résultats s'affichent automatiquement avec :
+                                <ul style="margin-top: 10px;">
+                                    <li><strong>Revenus par société :</strong> Répartition du CA selon les splits configurés</li>
+                                    <li><strong>Coût matières :</strong> Calcul automatique des coûts de production</li>
+                                    <li><strong>Bénéfice prévisionnel :</strong> Différence entre revenus et coûts</li>
+                                </ul>
+                            </li>
+                        </ol>
+                    </div>
+                    <div class="note">
+                        <strong>Note :</strong> Les revenus sont répartis entre les sociétés selon les pourcentages configurés dans les paramètres.
+                    </div>
+                </div>
+            </div>
+            
+            <div id="parametres" class="section">
+                <h2 class="section-title"><span class="emoji">⚙️</span> Paramètres</h2>
+                <p>Configurez les données de base de l'application.</p>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">🏢 Onglet Sociétés</h3>
+                    <ul>
+                        <li>Créez et gérez vos sociétés (nom, SIRET, TVA, adresse)</li>
+                        <li>Configurez les informations bancaires</li>
+                    </ul>
+                </div>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">👥 Onglet Clients</h3>
+                    <ul>
+                        <li>Ajoutez vos clients avec leurs coordonnées</li>
+                        <li>Gérez les adresses de facturation et emails</li>
+                    </ul>
+                </div>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">📦 Onglet Produits</h3>
+                    <ul>
+                        <li>Créez vos produits/services</li>
+                        <li>Définissez les prix de vente</li>
+                        <li>Configurez la <strong>nomenclature (BOM)</strong> : liste des matières premières nécessaires pour chaque produit</li>
+                        <li>Paramétrez les <strong>splits de revenus</strong> : répartition du CA entre sociétés (ex: 70% Société A, 30% Société B)</li>
+                    </ul>
+                </div>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">🧪 Onglet Matières premières</h3>
+                    <ul>
+                        <li>Ajoutez les matières premières utilisées</li>
+                        <li>Suivez les stocks et coûts</li>
+                    </ul>
+                </div>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">🚚 Onglet Fournisseurs</h3>
+                    <ul>
+                        <li>Gérez vos fournisseurs de matières premières</li>
+                    </ul>
+                </div>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">📧 Onglet Email <span style="color: #ff6b6b;">(Administrateur uniquement)</span></h3>
+                    <ul>
+                        <li>Configurez les paramètres SMTP pour l'envoi automatique de factures</li>
+                    </ul>
+                </div>
+                
+                <div class="subsection">
+                    <h3 class="subsection-title">👨‍💼 Onglet Utilisateurs <span style="color: #ff6b6b;">(Administrateur uniquement)</span></h3>
+                    <ul>
+                        <li>Créez de nouveaux utilisateurs</li>
+                        <li>Assignez les utilisateurs aux sociétés</li>
+                        <li>Gérez les mots de passe</li>
+                        <li>Supprimez des utilisateurs</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div id="droits" class="section">
+                <h2 class="section-title"><span class="emoji">🔒</span> Droits d'accès</h2>
+                
+                <div class="access-levels">
+                    <div class="access-card">
+                        <h4>👤 Tous les utilisateurs</h4>
+                        <ul class="icon-list">
+                            <li>Voir toutes les données de toutes les sociétés</li>
+                            <li>Créer et modifier des factures</li>
+                            <li>Créer et modifier des achats</li>
+                            <li>Gérer clients, produits, matières premières</li>
+                            <li>Utiliser le simulateur prévisionnel</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="access-card admin-only">
+                        <h4>👨‍💼 Administrateur uniquement</h4>
+                        <ul class="icon-list">
+                            <li>Accès à l'onglet Email (configuration SMTP)</li>
+                            <li>Accès à l'onglet Utilisateurs</li>
+                            <li>Création de nouveaux comptes</li>
+                            <li>Gestion des mots de passe</li>
+                            <li>Suppression d'utilisateurs</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title"><span class="emoji">✨</span> Fonctionnalités clés</h2>
+                
+                <div class="feature-box">
+                    <h4>💰 Calcul automatique du coût matières</h4>
+                    <p>Lorsque vous créez une facture, le système calcule automatiquement le coût des matières premières en se basant sur :</p>
+                    <ul>
+                        <li>La <strong>nomenclature (BOM)</strong> du produit</li>
+                        <li>Les <strong>prix d'achat réels</strong> des matières premières (historique des achats)</li>
+                    </ul>
+                </div>
+                
+                <div class="feature-box">
+                    <h4>📊 Répartition multi-sociétés</h4>
+                    <p>Pour les produits partagés entre plusieurs sociétés, le système répartit automatiquement :</p>
+                    <ul>
+                        <li>Le <strong>chiffre d'affaires</strong> selon les pourcentages configurés</li>
+                        <li>Les <strong>coûts matières</strong> proportionnellement aux revenus de chaque société</li>
+                    </ul>
+                </div>
+                
+                <div class="feature-box">
+                    <h4>📧 Envoi automatique de factures</h4>
+                    <p>Les factures peuvent être envoyées directement par email au format PDF aux clients.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <h3 style="color: #667eea; margin-bottom: 15px;">💬 Support</h3>
+            <p>Pour toute question ou problème technique, contactez votre administrateur système.</p>
+            <p style="margin-top: 10px;"><strong>Administrateur :</strong> <a href="mailto:fabien.hicauber@gmail.com" style="color: #667eea;">fabien.hicauber@gmail.com</a></p>
+            <p style="margin-top: 30px; font-size: 0.9em; color: #999;">Dernière mise à jour : 3 décembre 2025</p>
+        </div>
+    </div>
+</body>
+</html>

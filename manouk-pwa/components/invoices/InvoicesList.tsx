@@ -51,7 +51,7 @@ export default function InvoicesList({ invoices: initialInvoices, companies, cus
   return (
     <>
 
-      <div className="bg-white rounded-xl shadow-md p-6">
+      <div className="bg-white rounded-xl shadow-md p-3 sm:p-6">
         {/* Plus de filtre société ici, mono-société */}
 
         {/* Liste des factures */}
@@ -60,21 +60,21 @@ export default function InvoicesList({ invoices: initialInvoices, companies, cus
             Aucune facture. Créez-en une avec le bouton "Nouvelle facture" ci-dessus.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="overflow-x-auto -mx-3 sm:mx-0">
+            <table className="w-full min-w-[1200px]">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">N° Facture</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Client</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Société</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Date</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Total</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Payé</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Restant</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">Statut</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">URSSAF</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">Montant URSSAF</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Actions</th>
+                  <th className="px-2 sm:px-4 py-3 text-left text-xs font-semibold text-gray-600">N° Facture</th>
+                  <th className="px-2 sm:px-4 py-3 text-left text-xs font-semibold text-gray-600">Client</th>
+                  <th className="px-2 sm:px-4 py-3 text-left text-xs font-semibold text-gray-600">Société</th>
+                  <th className="px-2 sm:px-4 py-3 text-left text-xs font-semibold text-gray-600">Date</th>
+                  <th className="px-2 sm:px-4 py-3 text-right text-xs font-semibold text-gray-600">Total</th>
+                  <th className="px-2 sm:px-4 py-3 text-right text-xs font-semibold text-gray-600">Payé</th>
+                  <th className="px-2 sm:px-4 py-3 text-right text-xs font-semibold text-gray-600">Restant</th>
+                  <th className="px-2 sm:px-4 py-3 text-center text-xs font-semibold text-gray-600">Statut</th>
+                  <th className="px-2 sm:px-4 py-3 text-center text-xs font-semibold text-gray-600">URSSAF</th>
+                  <th className="px-2 sm:px-4 py-3 text-center text-xs font-semibold text-gray-600">Montant URSSAF</th>
+                  <th className="px-2 sm:px-4 py-3 text-right text-xs font-semibold text-gray-600">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">

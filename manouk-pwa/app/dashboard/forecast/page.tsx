@@ -43,8 +43,8 @@ export default async function ForecastPage() {
     .order('date', { ascending: false })
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900">💰 Trésorerie prévisionnelle</h1>
+    <div className="space-y-4 sm:space-y-6">
+      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">💰 Trésorerie prévisionnelle</h1>
       
       <ForecastSimulator 
         products={products || []}

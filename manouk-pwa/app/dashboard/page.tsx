@@ -52,18 +52,18 @@ export default async function DashboardPage() {
   const { data: purchases } = await purchasesQuery
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">📊 Tableau de bord</h1>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">📊 Tableau de bord</h1>
         <CompanyFilter companies={companies || []} canSeeAllOverride={true} />
       </div>
 
       <StatsCards companyId={companyId ?? 'all'} />
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <RevenueChart companyId={companyId ?? 'all'} />
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">
             💰 Rentabilité par produit (Top 10)
           </h3>
           <div className="h-64 flex items-center justify-center text-gray-400">
@@ -72,7 +72,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
         <RecentInvoices invoices={invoices || []} />
         <RecentPurchases purchases={purchases || []} />
       </div>
