@@ -56,7 +56,7 @@ export default async function PurchasesPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">🛒 Achats</h1>
-        <CompanyFilter companies={companies || []} canSeeAllOverride={isAdmin || (companies ? companies.length > 1 : false)} selectedCompanyId={companyId} />
+        <CompanyFilter companies={companies || []} canSeeAllOverride={isAdmin || (companies ? companies.length > 1 : false)} />
         <PurchaseModal 
           companies={companies || []} 
           suppliers={suppliers || []} 
