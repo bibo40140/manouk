@@ -54,10 +54,6 @@ export default function PurchaseModal({ companies, suppliers, rawMaterials }: an
   }
 
 
-  const filteredRawMaterials = rawMaterials.filter((m: any) => 
-    !companyId || m.company_id === companyId
-  )
-
   const selectedMaterial = rawMaterials.find((m: any) => m.id === rawMaterialId)
 
   const calculateTotal = () => {
@@ -123,11 +119,10 @@ export default function PurchaseModal({ companies, suppliers, rawMaterials }: an
                       }
                     }}
                     required
-                    disabled={!companyId}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   >
                     <option value="">Sélectionner...</option>
-                    {filteredRawMaterials.map((material: any) => (
+                    {rawMaterials.map((material: any) => (
                       <option key={material.id} value={material.id}>
                         {material.name} ({material.unit})
                       </option>

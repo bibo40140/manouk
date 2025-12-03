@@ -30,11 +30,17 @@ export default function CompaniesTab({ companies }: any) {
     if (!window.confirm('Supprimer cette société ? Cette action est irréversible.')) return;
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('companies')
-        .delete()
-        .eq('id', companyId);
-      if (error) throw error;
+      const response = await fetch('/api/admin/delete-company', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId })
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Erreur lors de la suppression');
+      }
+      
       router.refresh();
     } catch (err: any) {
       alert('Erreur lors de la suppression : ' + err.message);

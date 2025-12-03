@@ -10,15 +10,16 @@ import AdminTab from './AdminTab'
 
 type TabName = 'companies' | 'products' | 'materials' | 'customers' | 'smtp' | 'admin';
 
-export default function SettingsTabs({ companies, products, rawMaterials, customers }: any) {
+export default function SettingsTabs({ companies, products, rawMaterials, customers, userEmail, selectedCompanyId }: any) {
   const [activeTab, setActiveTab] = useState<TabName>('companies');
+  const isAdmin = userEmail === 'fabien.hicauber@gmail.com';
   const tabs = [
     { id: 'companies' as TabName, label: '🏢 Sociétés', count: companies.length },
     { id: 'products' as TabName, label: '📦 Produits', count: products.length },
     { id: 'materials' as TabName, label: '🧱 Matières premières', count: rawMaterials.length },
     { id: 'customers' as TabName, label: '👥 Clients', count: customers.length },
-    { id: 'smtp' as TabName, label: '✉️ Email', count: 0 },
-    { id: 'admin' as TabName, label: '🛡️ Admin', count: 0 },
+    ...(isAdmin ? [{ id: 'smtp' as TabName, label: '✉️ Email', count: 0 }] : []),
+    ...(isAdmin ? [{ id: 'admin' as TabName, label: '🛡️ Admin', count: 0 }] : []),
   ];
 
   return (
@@ -49,12 +50,12 @@ export default function SettingsTabs({ companies, products, rawMaterials, custom
 
       {/* Contenu des tabs */}
       <div className="bg-white rounded-xl shadow-md p-6">
-        {activeTab === 'companies' && <CompaniesTab companies={companies} />}
-        {activeTab === 'products' && <ProductsTab products={products} companies={companies} rawMaterials={rawMaterials} />}
-        {activeTab === 'materials' && <RawMaterialsTab rawMaterials={rawMaterials} companies={companies} />}
-        {activeTab === 'customers' && <CustomersTab customers={customers} companies={companies} />}
-        {activeTab === 'smtp' && <SmtpSettings />}
-        {activeTab === 'admin' && <AdminTab />}
+        {activeTab === 'companies' && <CompaniesTab companies={companies} selectedCompanyId={selectedCompanyId} />}
+        {activeTab === 'products' && <ProductsTab products={products} companies={companies} rawMaterials={rawMaterials} selectedCompanyId={selectedCompanyId} />}
+        {activeTab === 'materials' && <RawMaterialsTab rawMaterials={rawMaterials} companies={companies} selectedCompanyId={selectedCompanyId} />}
+        {activeTab === 'customers' && <CustomersTab customers={customers} companies={companies} selectedCompanyId={selectedCompanyId} />}
+        {activeTab === 'smtp' && isAdmin && <SmtpSettings />}
+        {activeTab === 'admin' && isAdmin && <AdminTab />}
       </div>
     </div>
   )

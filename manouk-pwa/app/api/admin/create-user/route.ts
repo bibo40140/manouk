@@ -4,19 +4,33 @@ import { createServiceRoleClient } from '@/lib/supabase/server'
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { email, companyId, role } = body as { email: string; companyId: string; role?: string }
+    const { email, password, companyId, role } = body as { email: string; password?: string; companyId: string; role?: string }
     if (!email || !companyId) {
       return NextResponse.json({ error: 'email et companyId requis' }, { status: 400 })
     }
 
-    const supabase = createServiceRoleClient()
+    const supabase = await createServiceRoleClient()
 
-    // Create user (invite) via Admin API
-    const { data: userData, error: userErr } = await supabase.auth.admin.inviteUserByEmail(email)
-    if (userErr) {
-      return NextResponse.json({ error: userErr.message }, { status: 500 })
+    // Create user with password if provided, otherwise invite
+    let userId: string | undefined
+    if (password) {
+      const { data: userData, error: userErr } = await supabase.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true
+      })
+      if (userErr) {
+        return NextResponse.json({ error: userErr.message }, { status: 500 })
+      }
+      userId = userData?.user?.id
+    } else {
+      const { data: userData, error: userErr } = await supabase.auth.admin.inviteUserByEmail(email)
+      if (userErr) {
+        return NextResponse.json({ error: userErr.message }, { status: 500 })
+      }
+      userId = userData?.user?.id
     }
-    const userId = userData?.user?.id
+    
     if (!userId) {
       return NextResponse.json({ error: 'Création utilisateur échouée' }, { status: 500 })
     }

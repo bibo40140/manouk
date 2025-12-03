@@ -6,11 +6,10 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import ProductBOMModal from './ProductBOMModal'
 
-export default function ProductsTab({ products: initialProducts, companies, rawMaterials }: any) {
+export default function ProductsTab({ products: initialProducts, companies, rawMaterials, selectedCompanyId }: any) {
   const router = useRouter()
   const supabase = createClient()
 
-  const [products, setProducts] = useState<any[]>(initialProducts)
   const [name, setName] = useState('')
   const [price, setPrice] = useState('')
   // Répartition multi-sociétés
@@ -21,38 +20,32 @@ export default function ProductsTab({ products: initialProducts, companies, rawM
   const [inlineEditId, setInlineEditId] = useState<string | null>(null)
   const [inlineData, setInlineData] = useState<any>({})
 
-  // Charge les produits et leurs splits depuis la base
-  const fetchProductsWithSplits = async () => {
-    // 1. Charge tous les produits
-    const { data: productsData, error: prodError } = await supabase.from('products').select('*')
-    if (prodError) {
-      alert('Erreur chargement produits: ' + prodError.message)
-      return
-    }
-    // 2. Charge tous les splits
-    const { data: allSplits, error: splitError } = await supabase.from('product_company_splits').select('*')
-    if (splitError) {
-      alert('Erreur chargement splits: ' + splitError.message)
-      return
-    }
-    // DEBUG LOG
-    console.log('Produits bruts:', productsData);
-    console.log('Splits bruts:', allSplits);
-    const mapped = (productsData || []).map((p: any) => {
-      const splits = companies.map((c: any) => {
-        const found = allSplits?.find((s: any) => s.product_id === p.id && s.company_id === c.id);
-        return { company_id: c.id, amount: found ? Number(found.amount) : 0 };
-      });
-      return { ...p, splits };
-    });
-    console.log('Produits avec splits:', mapped);
-    setProducts(mapped);
-  }
+  // Charger les splits pour les produits initiaux
+  const [products, setProducts] = useState<any[]>([])
 
   useEffect(() => {
-    fetchProductsWithSplits()
+    const loadProductsWithSplits = async () => {
+      // Charge les splits pour les produits initiaux
+      const { data: allSplits, error: splitError } = await supabase.from('product_company_splits').select('*')
+      if (splitError) {
+        console.error('Erreur chargement splits:', splitError.message)
+        setProducts(initialProducts)
+        return
+      }
+      
+      const mapped = (initialProducts || []).map((p: any) => {
+        const splits = companies.map((c: any) => {
+          const found = allSplits?.find((s: any) => s.product_id === p.id && s.company_id === c.id);
+          return { company_id: c.id, amount: found ? Number(found.amount) : 0 };
+        });
+        return { ...p, splits };
+      });
+      setProducts(mapped);
+    }
+    
+    loadProductsWithSplits()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [initialProducts])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,7 +95,7 @@ export default function ProductsTab({ products: initialProducts, companies, rawM
       setPrice('');
       setSplits(companies.map((c: any) => ({ company_id: c.id, amount: '' })));
       setEditingProduct(null);
-      await fetchProductsWithSplits();
+      router.refresh();
     } catch (err: any) {
       alert('Erreur: ' + err.message);
     } finally {
@@ -221,11 +214,14 @@ export default function ProductsTab({ products: initialProducts, companies, rawM
       }
       setInlineEditId(null);
       setInlineData({});
-      await fetchProductsWithSplits();
+      router.refresh();
     } catch (err: any) {
       alert('Erreur: ' + err.message);
     }
   }
+
+  // Afficher tous les produits, sans filtrage
+  const filteredProducts = products;
 
   return (
     <div className="space-y-6">
@@ -326,7 +322,7 @@ export default function ProductsTab({ products: initialProducts, companies, rawM
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {products.map((product: any) => (
+              {filteredProducts.map((product: any) => (
                 <tr key={product.id} className="hover:bg-gray-50">
                   {inlineEditId === product.id ? (
                     <>
