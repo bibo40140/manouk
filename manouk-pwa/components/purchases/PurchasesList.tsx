@@ -41,12 +41,17 @@ export default function PurchasesList({ purchases, companies, suppliers, rawMate
     if (!confirm('Supprimer cet achat ?')) return
 
     try {
-      const { error } = await supabase
-        .from('purchases')
-        .delete()
-        .eq('id', id)
+      const response = await fetch('/api/admin/delete-purchase', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ purchaseId: id })
+      })
 
-      if (error) throw error
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Erreur lors de la suppression')
+      }
+
       router.refresh()
     } catch (err: any) {
       alert('Erreur: ' + err.message)
@@ -123,7 +128,6 @@ export default function PurchasesList({ purchases, companies, suppliers, rawMate
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Date</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Matière première</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Fournisseur</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Société</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Quantité</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Coût unitaire</th>
@@ -138,13 +142,10 @@ export default function PurchasesList({ purchases, companies, suppliers, rawMate
                   return (
                     <tr key={purchase.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        {new Date(purchase.date).toLocaleDateString('fr-FR')}
+                        {new Date(purchase.purchase_date).toLocaleDateString('fr-FR')}
                       </td>
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">
                         {purchase.raw_material?.name || '-'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
-                        {purchase.supplier?.name || '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
                         {purchase.company?.name || '-'}

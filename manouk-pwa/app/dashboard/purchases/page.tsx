@@ -17,17 +17,18 @@ export default async function PurchasesPage() {
   const client = isAdmin ? await createServiceRoleClient() : supabase
   // Charger toutes les sociétés
   const { data: companies } = await client.from('companies').select('id, name, code, user_id').order('name')
-  // Prioriser la société de l'utilisateur
-  const userCompany = companies?.find(c => c.user_id === user.id) || companies?.[0]
+  // Gérer le filtre de société
   const cookieCompany = (await cookies()).get('activeCompanyId')?.value || null
   let companyId: string | null = null
+  
   if (cookieCompany && cookieCompany !== 'all' && companies) {
     const found = companies.find(c => c.id === cookieCompany)
-    companyId = found ? found.id : (userCompany ? userCompany.id : companies[0]?.id)
+    companyId = found ? found.id : null
   } else if (cookieCompany === 'all') {
     companyId = null
   } else {
-    companyId = userCompany ? userCompany.id : companies[0]?.id
+    // Par défaut, afficher tous les achats (null)
+    companyId = null
   }
 
   // Charger toutes les données (tous les fournisseurs et matières premières)
@@ -42,7 +43,13 @@ export default async function PurchasesPage() {
       company:companies(id, name, code)
     `)
     .order('purchase_date', { ascending: false })
-  if (companyId) purchasesQuery = purchasesQuery.eq('company_id', companyId)
+  
+  // Filtrer par société seulement si une société spécifique est sélectionnée
+  // Si companyId est null (toutes les sociétés), on charge tout
+  if (companyId) {
+    purchasesQuery = purchasesQuery.eq('company_id', companyId)
+  }
+  
   const { data: purchases } = await purchasesQuery
 
   return (

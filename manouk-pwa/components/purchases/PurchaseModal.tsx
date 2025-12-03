@@ -24,18 +24,23 @@ export default function PurchaseModal({ companies, suppliers, rawMaterials }: an
     setLoading(true)
 
     try {
-      const { error } = await supabase
-        .from('purchases')
-        .insert([{
-          company_id: companyId,
-          raw_material_id: rawMaterialId,
-          quantity: parseFloat(quantity),
-          unit_cost: parseFloat(unitCost),
-          purchase_date: purchaseDate,
+      const response = await fetch('/api/admin/create-purchase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId,
+          rawMaterialId,
+          quantity,
+          unitCost,
+          purchaseDate,
           paid
-        }])
+        })
+      })
 
-      if (error) throw error
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Erreur lors de la création de l\'achat')
+      }
 
       // Réinitialiser le formulaire
       setCompanyId('')
