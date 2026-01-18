@@ -3,9 +3,11 @@ import { createClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { cookies } from 'next/headers'
 import StatsCards from '@/components/dashboard/StatsCards'
 import RevenueChart from '@/components/dashboard/RevenueChart'
-import RecentInvoices from '@/components/dashboard/RecentInvoices'
-import RecentPurchases from '@/components/dashboard/RecentPurchases'
 import CompanyFilter from '@/components/dashboard/CompanyFilter'
+import StockAlerts from '@/components/dashboard/StockAlerts'
+import TasksList from '@/components/dashboard/TasksList'
+import UrssafSummary from '@/components/dashboard/UrssafSummary'
+import ProductStats from '@/components/dashboard/ProductStats'
 
 export default async function DashboardPage() {
 
@@ -15,7 +17,9 @@ export default async function DashboardPage() {
   const isAdmin = user?.email === 'fabien.hicauber@gmail.com'
   const client = isAdmin ? await createServiceRoleClient() : supabase
   const { data: companies } = await client.from('companies').select('id, name').order('name')
-  const cookieCompany = (await cookies()).get('activeCompanyId')?.value || null
+  const cookieStore = await cookies()
+  let cookieCompany = cookieStore.get('activeCompanyId')?.value || null
+  
   let companyId: string | null = null
   if (cookieCompany && cookieCompany !== 'all') {
     const found = companies?.find(c => c.id === cookieCompany)
@@ -38,18 +42,21 @@ export default async function DashboardPage() {
     .from('invoices')
     .select('*, customer:customers(name), company:companies(name)')
     .order('invoice_date', { ascending: false })
-    .limit(5)
   let purchasesQuery = client
     .from('purchases')
     .select('*, supplier:suppliers(name), company:companies(name)')
     .order('purchase_date', { ascending: false })
-    .limit(5)
   if (companyId) {
     invoicesQuery = invoicesQuery.eq('company_id', companyId)
     purchasesQuery = purchasesQuery.eq('company_id', companyId)
   }
   const { data: invoices } = await invoicesQuery
   const { data: purchases } = await purchasesQuery
+  
+  // Charger les données pour les nouveaux widgets
+  const { data: rawMaterials } = await client.from('raw_materials').select('*')
+  const { data: products } = await client.from('products').select('*')
+  const { data: fixedCosts } = await client.from('fixed_costs').select('*')
 
   return (
     <div className="space-y-6">
@@ -60,21 +67,35 @@ export default async function DashboardPage() {
 
       <StatsCards companyId={companyId ?? 'all'} />
       
+      <RevenueChart companyId={companyId ?? 'all'} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+        <StockAlerts materials={rawMaterials || []} />
+        <TasksList invoices={invoices || []} />
+        <UrssafSummary invoices={invoices || []} />
+      </div>
+      
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <RevenueChart companyId={companyId ?? 'all'} />
+        <ProductStats 
+          products={products || []} 
+          invoices={invoices || []} 
+        />
         <div className="bg-white rounded-xl shadow-md p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            💰 Rentabilité par produit (Top 10)
+            💡 Insights
           </h3>
-          <div className="h-64 flex items-center justify-center text-gray-400">
-            Graphique à venir
+          <div className="space-y-3 text-sm text-gray-600">
+            <p className="p-3 bg-blue-50 rounded-lg">
+              💰 Vos produits les plus rentables s'affichent ci-contre
+            </p>
+            <p className="p-3 bg-green-50 rounded-lg">
+              📊 Suivez vos tendances mensuelles pour anticiper
+            </p>
+            <p className="p-3 bg-purple-50 rounded-lg">
+              ⚠️ Les alertes de stock vous évitent les ruptures
+            </p>
           </div>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <RecentInvoices invoices={invoices || []} />
-        <RecentPurchases purchases={purchases || []} />
       </div>
     </div>
   )

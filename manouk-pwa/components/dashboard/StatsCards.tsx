@@ -9,15 +9,31 @@ export default async function StatsCards({ companyId }: { companyId?: string }) 
   // Construire les queries avec filtre optionnel
   let invoicesQuery = client.from('invoices').select('total, paid, urssaf_amount, urssaf_paid_amount, urssaf_paid_date')
   let purchasesQuery = client.from('purchases').select('quantity, unit_cost, paid')
+  let fixedCostsQuery = client.from('fixed_costs').select('amount, frequency, company_id')
 
   if (companyId && companyId !== 'all') {
     invoicesQuery = invoicesQuery.eq('company_id', companyId)
     purchasesQuery = purchasesQuery.eq('company_id', companyId)
+    fixedCostsQuery = fixedCostsQuery.eq('company_id', companyId)
   }
 
   // Récupérer les statistiques
   const { data: invoices } = await invoicesQuery
   const { data: purchases } = await purchasesQuery
+  const { data: fixedCosts } = await fixedCostsQuery
+
+  // Fonction pour convertir en montant mensuel
+  const getMonthlyAmount = (amount: number, frequency: string) => {
+    switch(frequency) {
+      case 'yearly': return amount / 12
+      case 'quarterly': return amount / 3
+      default: return amount
+    }
+  }
+
+  // Calculer le total des frais fixes mensuels
+  const fixedCostsMonthly = fixedCosts?.reduce((sum, cost) => 
+    sum + getMonthlyAmount(Number(cost.amount), cost.frequency), 0) || 0
 
   // Calculs
   const totalPaid = invoices?.reduce((sum, inv) => sum + Number(inv.paid), 0) || 0
@@ -31,7 +47,7 @@ export default async function StatsCards({ companyId }: { companyId?: string }) 
   // URSSAF dû = somme des montants URSSAF des factures non payées (pas de date de paiement)
   const urssafDue = invoices?.reduce((sum, inv) => sum + (!inv.urssaf_paid_date ? Number(inv.urssaf_amount) || 0 : 0), 0) || 0;
   
-  const result = totalPaid - purchasesPaid - urssafPaid
+  const result = totalPaid - purchasesPaid - urssafPaid - fixedCostsMonthly
 
   const stats = [
     { label: 'CA', value: totalPaid, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-600' },
@@ -40,6 +56,7 @@ export default async function StatsCards({ companyId }: { companyId?: string }) 
     { label: 'Dettes', value: payables, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-600' },
     { label: 'URSSAF dû', value: urssafDue, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-600' },
     { label: 'URSSAF payé', value: urssafPaid, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-600' },
+    { label: 'Frais fixes/mois', value: fixedCostsMonthly, color: 'text-pink-600', bg: 'bg-pink-50', border: 'border-pink-600' },
     { label: 'Résultat', value: result, color: result >= 0 ? 'text-green-600' : 'text-red-600', bg: result >= 0 ? 'bg-green-50' : 'bg-red-50', border: result >= 0 ? 'border-green-600' : 'border-red-600' },
   ]
 
@@ -48,7 +65,7 @@ export default async function StatsCards({ companyId }: { companyId?: string }) 
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
       {stats.map((stat) => (
         <div
           key={stat.label}

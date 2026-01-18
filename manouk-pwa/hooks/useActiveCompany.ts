@@ -25,6 +25,8 @@ export function useActiveCompany() {
           return;
         }
 
+        const isAdmin = user.email === 'fabien.hicauber@gmail.com';
+
         // Try to read authorized companies via user_companies relation (inner join)
         const { data: rel, error: relErr } = await supabase
           .from('user_companies')
@@ -44,6 +46,14 @@ export function useActiveCompany() {
           companies = data || [];
         }
         setCompaniesAuthorized(companies);
+
+        // Pour l'admin, on force TOUJOURS null (= Tout)
+        if (isAdmin) {
+          document.cookie = `activeCompanyId=all; path=/; max-age=${60 * 60 * 24 * 365}`;
+          setActiveCompanyId(null);
+          setLoading(false);
+          return;
+        }
 
         const stored = typeof window !== 'undefined' ? window.localStorage.getItem(COMPANY_STORAGE_KEY) : null;
         const validStored = stored && companies.some(c => c.id === stored) ? stored : null;

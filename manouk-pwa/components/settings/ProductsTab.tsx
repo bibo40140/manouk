@@ -10,6 +10,9 @@ export default function ProductsTab({ products: initialProducts, companies, rawM
   const router = useRouter()
   const supabase = createClient()
 
+  console.log('🎯 ProductsTab - initialProducts:', initialProducts);
+  console.log('🎯 ProductsTab - companies:', companies);
+  
   const [products, setProducts] = useState<any[]>(initialProducts)
   const [name, setName] = useState('')
   const [price, setPrice] = useState('')
@@ -23,14 +26,17 @@ export default function ProductsTab({ products: initialProducts, companies, rawM
 
   // Charge les produits et leurs splits depuis la base
   const fetchProductsWithSplits = async () => {
+    console.log('🔍 fetchProductsWithSplits - Début');
     // 1. Charge tous les produits
     const { data: productsData, error: prodError } = await supabase.from('products').select('*')
+    console.log('🔍 Produits chargés:', productsData, 'Erreur:', prodError);
     if (prodError) {
       alert('Erreur chargement produits: ' + prodError.message)
       return
     }
     // 2. Charge tous les splits
     const { data: allSplits, error: splitError } = await supabase.from('product_company_splits').select('*')
+    console.log('🔍 Splits chargés:', allSplits, 'Erreur:', splitError);
     if (splitError) {
       alert('Erreur chargement splits: ' + splitError.message)
       return
@@ -45,14 +51,18 @@ export default function ProductsTab({ products: initialProducts, companies, rawM
       });
       return { ...p, splits };
     });
-    console.log('Produits avec splits:', mapped);
+    console.log('✅ Produits avec splits (final):', mapped);
+    console.log('✅ Nombre de produits:', mapped.length);
     setProducts(mapped);
   }
 
-  useEffect(() => {
-    fetchProductsWithSplits()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // DÉSACTIVÉ: Ne pas recharger les données côté client car les RLS policies
+  // ne fonctionnent pas correctement avec auth.email(). On utilise les données
+  // serveur déjà chargées avec createServiceRoleClient pour l'admin.
+  // useEffect(() => {
+  //   fetchProductsWithSplits()
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -424,7 +434,7 @@ export default function ProductsTab({ products: initialProducts, companies, rawM
                             onClick={() => setBomProduct(product)}
                             className="text-green-600 hover:text-green-800 text-sm font-medium"
                           >
-                            🧱 Nomenclature
+                            🧱 Composition
                           </button>
                           <button
                             onClick={() => startInlineEdit(product)}
@@ -447,6 +457,11 @@ export default function ProductsTab({ products: initialProducts, companies, rawM
 
             </tbody>
           </table>
+          {products.length === 0 && (
+            <div className="mt-4 text-center text-gray-500">
+              Aucun produit trouvé. Vérifiez la console pour les logs de débogage.
+            </div>
+          )}
         </div>
       </div>
 

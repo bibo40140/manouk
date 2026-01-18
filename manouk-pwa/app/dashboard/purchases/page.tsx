@@ -17,7 +17,6 @@ export default async function PurchasesPage() {
   const client = isAdmin ? await createServiceRoleClient() : supabase
   // Sociétés autorisées (RLS)
   const { data: companies } = await client.from('companies').select('id, name, code').order('name')
-  const isAdmin = user?.email === 'fabien.hicauber@gmail.com'
   if (!isAdmin && (!companies || companies.length === 0)) {
     return <div className="p-8 text-red-600">Aucune société associée à votre compte.</div>
   }
@@ -42,7 +41,7 @@ export default async function PurchasesPage() {
   }
   const { data: suppliers } = await suppliersQuery
   const { data: rawMaterials } = await rawMaterialsQuery
-  let purchasesQuery = await client
+  let purchasesQuery = client
     .from('purchases')
     .select(`
       *,

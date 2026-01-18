@@ -1,6 +1,7 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import ForecastSimulator from '@/components/forecast/ForecastSimulator'
+import ForecastInterface from '@/components/forecast/ForecastInterface'
+import { cookies } from 'next/headers'
 
 
 export default async function ForecastPage() {
@@ -9,25 +10,37 @@ export default async function ForecastPage() {
   if (!user) {
     redirect('/login')
   }
-  // Récupère la société du user connecté (mono-société)
-  const { data: companies } = await supabase.from('companies').select('*').eq('user_id', user.id).order('name')
-  const company = companies?.[0]
-  if (!company) {
+  
+  const isAdmin = user?.email === 'fabien.hicauber@gmail.com'
+  const client = isAdmin ? await createServiceRoleClient() : supabase
+  
+  // Récupère les sociétés (toutes pour admin, filtrées pour user normal)
+  let companiesQuery = client.from('companies').select('*').order('name')
+  if (!isAdmin) {
+    companiesQuery = companiesQuery.eq('user_id', user.id)
+  }
+  
+  const { data: companies } = await companiesQuery
+  
+  if (!companies || companies.length === 0) {
     return <div className="p-8 text-red-600">Aucune société associée à votre compte.</div>
   }
-  const companyId = company.id
-  // Filtrer toutes les requêtes par company_id
-  const { data: products } = await supabase.from('products').select('*, product_materials(*, raw_material:raw_materials(*))').eq('company_id', companyId)
-  const { data: rawMaterials } = await supabase.from('raw_materials').select('*').eq('company_id', companyId)
+  
+  // Charger les product_company_splits pour les calculs par société
+  const { data: productSplits } = await client.from('product_company_splits').select('*')
+  
+  // Charger tous les produits (ils sont liés via product_company_splits, pas directement par company_id)
+  const { data: products } = await client.from('products').select('*, product_materials(*, raw_material:raw_materials(*))').order('name')
+  const { data: rawMaterials } = await client.from('raw_materials').select('*').order('name')
+  const { data: fixedCosts } = await client.from('fixed_costs').select('*').order('name')
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900">💰 Trésorerie prévisionnelle</h1>
-      
-      <ForecastSimulator 
-        products={products || []}
-        rawMaterials={rawMaterials || []}
-      />
-    </div>
+    <ForecastInterface
+      products={products || []}
+      rawMaterials={rawMaterials || []}
+      fixedCosts={fixedCosts || []}
+      companies={companies || []}
+      productSplits={productSplits || []}
+    />
   )
 }

@@ -11,16 +11,11 @@ export default async function ForecastPage() {
 
   // Récupérer les produits avec leurs BOM
   const { data: companies } = await client.from('companies').select('id, name').order('name')
-  const cookieCompany = (await cookies()).get('activeCompanyId')?.value || null
-  let companyId: string | null = null
-  if (cookieCompany && cookieCompany !== 'all') {
-    const found = companies?.find(c => c.id === cookieCompany)
-    companyId = found ? found.id : null
-  } else if (cookieCompany === 'all') {
-    companyId = null
-  }
-  // Admin: par défaut voit tout, mais s'il a sélectionné une société via le cookie, on respecte ce filtre
-
+  
+  // Charger les product_company_splits pour les calculs par société
+  const { data: productSplits, error: splitsError } = await client.from('product_company_splits').select('*')
+  
+  // Cette page doit être identique pour tous les tenants: on voit tout
   let productsQuery = client
     .from('products')
     .select(`
@@ -36,7 +31,6 @@ export default async function ForecastPage() {
       )
     `)
     .order('name')
-  if (companyId) productsQuery = productsQuery.eq('company_id', companyId)
   const { data: products } = await productsQuery
 
   // Récupérer les matières premières
@@ -44,8 +38,17 @@ export default async function ForecastPage() {
     .from('raw_materials')
     .select('*')
     .order('name')
-  if (companyId) rawMaterialsQuery = rawMaterialsQuery.eq('company_id', companyId)
   const { data: rawMaterials } = await rawMaterialsQuery
+  
+  // Récupérer les frais fixes
+  const { data: fixedCosts } = await client.from('fixed_costs').select('*')
+  
+  console.log('🗄️ [forecast/page] Loaded data:', {
+    productsCount: products?.length,
+    productSplitsCount: productSplits?.length,
+    productSplitsData: productSplits,
+    splitsError
+  })
 
   return (
     <div className="space-y-6">
@@ -60,6 +63,9 @@ export default async function ForecastPage() {
       <ForecastInterface 
         products={products || []} 
         rawMaterials={rawMaterials || []} 
+        productSplits={productSplits || []} 
+        companies={companies || []}
+        fixedCosts={fixedCosts || []}
       />
     </div>
   )

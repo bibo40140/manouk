@@ -19,12 +19,38 @@ export default function ProductBOMModal({ product, rawMaterials, onClose }: any)
   }, [product.id])
 
   const loadProductMaterials = async () => {
-    const { data } = await supabase
+    console.log('🔍 loadProductMaterials - rawMaterials prop:', rawMaterials);
+    console.log('🔍 loadProductMaterials - product.id:', product.id);
+    
+    const { data, error } = await supabase
       .from('product_materials')
-      .select('*, raw_material:raw_materials(*)')
+      .select('id, product_id, raw_material_id, quantity')
       .eq('product_id', product.id)
     
-    setMaterials(data || [])
+    console.log('🔍 product_materials data:', data);
+    console.log('🔍 product_materials error:', error);
+    
+    if (error) {
+      console.error('Erreur chargement product_materials:', error)
+      return
+    }
+
+    // Enrichir avec les informations des matières premières
+    const enrichedData = (data || []).map(pm => {
+      console.log('🔍 Cherche raw_material_id:', pm.raw_material_id);
+      const rawMat = rawMaterials.find((rm: any) => {
+        console.log('  - Compare avec rm.id:', rm.id, 'Match:', rm.id === pm.raw_material_id);
+        return rm.id === pm.raw_material_id;
+      });
+      console.log('🔍 rawMat trouvé:', rawMat);
+      return {
+        ...pm,
+        raw_material: rawMat
+      }
+    })
+
+    console.log('✅ Materials chargés (enriched):', enrichedData)
+    setMaterials(enrichedData)
   }
 
   const handleAdd = async (e: React.FormEvent) => {
@@ -81,7 +107,7 @@ export default function ProductBOMModal({ product, rawMaterials, onClose }: any)
       <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         <div className="bg-indigo-600 px-6 py-4 flex justify-between items-center">
           <h2 className="text-xl font-bold text-white">
-            Nomenclature: {product.name}
+            Composition: {product.name}
           </h2>
           <button
             onClick={onClose}
@@ -106,7 +132,7 @@ export default function ProductBOMModal({ product, rawMaterials, onClose }: any)
                   <option value="">Sélectionner...</option>
                   {availableMaterials.map((material: any) => (
                     <option key={material.id} value={material.id}>
-                      {material.name} ({material.unit})
+                      {material.name}
                     </option>
                   ))}
                 </select>
@@ -150,13 +176,13 @@ export default function ProductBOMModal({ product, rawMaterials, onClose }: any)
                   >
                     <div className="flex-1">
                       <span className="font-medium text-gray-900 text-sm">
-                        {item.raw_material?.name}
+                        {item.quantity}
                       </span>
                       <span className="text-gray-600 ml-2 text-sm">
-                        {item.quantity} {item.raw_material?.unit}
+                        {item.raw_material?.name || '(Matière inconnue)'}
                       </span>
                       <span className="text-gray-500 ml-2 text-xs">
-                        ({(item.quantity * item.raw_material?.unit_cost).toFixed(2)} €)
+                        ({((item.quantity || 0) * (item.raw_material?.unit_cost || 0)).toFixed(2)} €)
                       </span>
                     </div>
                     <button
