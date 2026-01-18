@@ -111,7 +111,7 @@ export default function ForecastResults({ monthlyQty, months, products, rawMater
 
     // Calculer solde cumulé
     let cumulativeBalance = 0
-    return results.map(r => {
+    return results.map((r: any) => {
       cumulativeBalance += r.netResult
       return { ...r, balance: cumulativeBalance }
     })
