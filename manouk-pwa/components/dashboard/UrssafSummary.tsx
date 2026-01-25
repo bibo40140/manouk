@@ -1,6 +1,11 @@
 'use client'
 
 export default function UrssafSummary({ invoices }: { invoices: any[] }) {
+  console.log('📊 URSSAF - Factures reçues:', invoices?.length || 0)
+  if (invoices && invoices.length > 0) {
+    console.log('📊 URSSAF - Exemple de facture:', invoices[0])
+  }
+  
   const now = new Date()
   const currentQuarter = Math.floor(now.getMonth() / 3) + 1
   const currentYear = now.getFullYear()
@@ -15,14 +20,16 @@ export default function UrssafSummary({ invoices }: { invoices: any[] }) {
   
   const quarterlyData = quarters.map(({ q, label, months }) => {
     const quarterInvoices = invoices.filter(inv => {
-      const date = new Date(inv.invoice_date)
+      const date = new Date(inv.date)
       return date.getFullYear() === currentYear && months.includes(date.getMonth())
     })
     
-    const totalCA = quarterInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0)
-    const urssafDeclared = quarterInvoices.reduce((sum, inv) => sum + (inv.urssaf_declared_amount || 0), 0)
-    const urssafPaid = quarterInvoices.reduce((sum, inv) => sum + (inv.urssaf_paid_amount || 0), 0)
+    const totalCA = quarterInvoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0)
+    const urssafDeclared = quarterInvoices.reduce((sum, inv) => sum + (Number(inv.urssaf_amount) || 0), 0)
+    const urssafPaid = quarterInvoices.reduce((sum, inv) => sum + (Number(inv.urssaf_paid_amount) || 0), 0)
     const urssafDue = urssafDeclared - urssafPaid
+    
+    console.log(`📊 URSSAF ${label}:`, { quarterInvoices: quarterInvoices.length, totalCA, urssafDeclared, urssafPaid })
     
     return { q, label, totalCA, urssafDeclared, urssafPaid, urssafDue, isCurrent: q === currentQuarter }
   })

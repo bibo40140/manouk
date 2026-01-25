@@ -1,0 +1,279 @@
+"use client"
+
+import { useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
+
+type RawMaterial = {
+  id: string
+  name: string
+  unit: string
+  unit_cost: number
+  stock: number
+  alert_threshold?: number
+}
+
+type Product = {
+  id: string
+  name: string
+  price: number
+  stock: number
+  alert_threshold?: number
+}
+
+type Company = {
+  id: string
+  name: string
+  email: string | null
+}
+
+type Props = {
+  rawMaterials: RawMaterial[]
+  products: Product[]
+  companies: Company[]
+}
+
+export default function StockInterface({ rawMaterials: initialRawMaterials, products: initialProducts, companies }: Props) {
+  const supabase = createClient()
+  const [rawMaterials, setRawMaterials] = useState(initialRawMaterials)
+  const [products, setProducts] = useState(initialProducts)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingType, setEditingType] = useState<'material' | 'product' | null>(null)
+  const [threshold, setThreshold] = useState(0)
+  const [message, setMessage] = useState<string | null>(null)
+
+  const updateThreshold = async (id: string, type: 'material' | 'product', newThreshold: number) => {
+    try {
+      const table = type === 'material' ? 'raw_materials' : 'products'
+      const { error } = await supabase
+        .from(table)
+        .update({ alert_threshold: newThreshold })
+        .eq('id', id)
+
+      if (error) throw error
+
+      // Mettre à jour l'état local
+      if (type === 'material') {
+        setRawMaterials(prev => prev.map(m => m.id === id ? { ...m, alert_threshold: newThreshold } : m))
+      } else {
+        setProducts(prev => prev.map(p => p.id === id ? { ...p, alert_threshold: newThreshold } : p))
+      }
+
+      setMessage('Seuil d\'alerte mis à jour')
+      setEditingId(null)
+      setEditingType(null)
+      setTimeout(() => setMessage(null), 3000)
+    } catch (e: any) {
+      setMessage('Erreur : ' + e.message)
+    }
+  }
+
+  const sendAlert = async (companyEmail: string, itemName: string, stock: number, type: string) => {
+    try {
+      const res = await fetch('/api/stock/send-alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyEmail, itemName, stock, type })
+      })
+      
+      if (!res.ok) throw new Error('Erreur envoi email')
+      
+      setMessage(`Alerte envoyée à ${companyEmail}`)
+      setTimeout(() => setMessage(null), 3000)
+    } catch (e: any) {
+      setMessage('Erreur : ' + e.message)
+    }
+  }
+
+  const getStockStatus = (stock: number, threshold?: number) => {
+    if (!threshold) return 'normal'
+    if (stock <= 0) return 'empty'
+    if (stock <= threshold) return 'low'
+    return 'normal'
+  }
+
+  const getStockColor = (status: string) => {
+    switch (status) {
+      case 'empty': return 'bg-red-100 text-red-800'
+      case 'low': return 'bg-orange-100 text-orange-800'
+      default: return 'bg-green-100 text-green-800'
+    }
+  }
+
+  return (
+    <div className="space-y-8">
+      {message && (
+        <div className="bg-blue-50 text-blue-800 p-4 rounded">
+          {message}
+        </div>
+      )}
+
+      {/* Matières premières */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4">Matières Premières</h2>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock actuel</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Seuil d'alerte</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {rawMaterials.map((material) => {
+                const status = getStockStatus(material.stock, material.alert_threshold)
+                const isEditing = editingId === material.id && editingType === 'material'
+                
+                return (
+                  <tr key={material.id}>
+                    <td className="px-4 py-3 text-sm font-medium">{material.name}</td>
+                    <td className="px-4 py-3 text-sm">{material.stock} {material.unit}</td>
+                    <td className="px-4 py-3 text-sm">
+                      {isEditing ? (
+                        <div className="flex gap-2">
+                          <input
+                            type="number"
+                            value={threshold}
+                            onChange={(e) => setThreshold(Number(e.target.value))}
+                            className="w-20 px-2 py-1 border rounded"
+                          />
+                          <button
+                            onClick={() => updateThreshold(material.id, 'material', threshold)}
+                            className="text-green-600 hover:text-green-800"
+                          >
+                            ✓
+                          </button>
+                          <button
+                            onClick={() => { setEditingId(null); setEditingType(null); }}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <span>{material.alert_threshold || 'Non défini'}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${getStockColor(status)}`}>
+                        {status === 'empty' ? 'Rupture' : status === 'low' ? 'Stock faible' : 'OK'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm space-x-2">
+                      <button
+                        onClick={() => {
+                          setEditingId(material.id)
+                          setEditingType('material')
+                          setThreshold(material.alert_threshold || 0)
+                        }}
+                        className="text-blue-600 hover:text-blue-800"
+                        title="Définir seuil"
+                      >
+                        ⚙️
+                      </button>
+                      {status !== 'normal' && companies[0]?.email && (
+                        <button
+                          onClick={() => sendAlert(companies[0].email!, material.name, material.stock, 'matière première')}
+                          className="text-orange-600 hover:text-orange-800"
+                          title="Envoyer alerte"
+                        >
+                          📧
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Produits */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4">Produits</h2>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock actuel</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Seuil d'alerte</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {products.map((product) => {
+                const status = getStockStatus(product.stock, product.alert_threshold)
+                const isEditing = editingId === product.id && editingType === 'product'
+                
+                return (
+                  <tr key={product.id}>
+                    <td className="px-4 py-3 text-sm font-medium">{product.name}</td>
+                    <td className="px-4 py-3 text-sm">{product.stock}</td>
+                    <td className="px-4 py-3 text-sm">
+                      {isEditing ? (
+                        <div className="flex gap-2">
+                          <input
+                            type="number"
+                            value={threshold}
+                            onChange={(e) => setThreshold(Number(e.target.value))}
+                            className="w-20 px-2 py-1 border rounded"
+                          />
+                          <button
+                            onClick={() => updateThreshold(product.id, 'product', threshold)}
+                            className="text-green-600 hover:text-green-800"
+                          >
+                            ✓
+                          </button>
+                          <button
+                            onClick={() => { setEditingId(null); setEditingType(null); }}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <span>{product.alert_threshold || 'Non défini'}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${getStockColor(status)}`}>
+                        {status === 'empty' ? 'Rupture' : status === 'low' ? 'Stock faible' : 'OK'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm space-x-2">
+                      <button
+                        onClick={() => {
+                          setEditingId(product.id)
+                          setEditingType('product')
+                          setThreshold(product.alert_threshold || 0)
+                        }}
+                        className="text-blue-600 hover:text-blue-800"
+                        title="Définir seuil"
+                      >
+                        ⚙️
+                      </button>
+                      {status !== 'normal' && companies[0]?.email && (
+                        <button
+                          onClick={() => sendAlert(companies[0].email!, product.name, product.stock, 'produit')}
+                          className="text-orange-600 hover:text-orange-800"
+                          title="Envoyer alerte"
+                        >
+                          📧
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}

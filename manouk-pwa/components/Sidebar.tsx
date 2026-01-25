@@ -7,13 +7,15 @@ import {
   DocumentTextIcon, 
   ShoppingCartIcon,
   CurrencyEuroIcon,
-  CogIcon 
+  CogIcon,
+  CubeIcon
 } from '@heroicons/react/24/outline'
 
 const navigation = [
   { name: 'Tableau de bord', href: '/dashboard', icon: HomeIcon },
   { name: 'Factures', href: '/dashboard/invoices', icon: DocumentTextIcon },
   { name: 'Achats', href: '/dashboard/purchases', icon: ShoppingCartIcon },
+  { name: 'Stocks', href: '/dashboard/stock', icon: CubeIcon },
   { name: 'Trésorerie prévisionnelle', href: '/dashboard/forecast', icon: CurrencyEuroIcon },
   { name: 'Paramètres', href: '/dashboard/settings', icon: CogIcon },
 ]

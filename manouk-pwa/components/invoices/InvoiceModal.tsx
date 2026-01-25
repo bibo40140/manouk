@@ -230,6 +230,18 @@ export default function InvoiceModal({ companies, customers, products }: any) {
           text: mailBody
         })
       });
+
+      // Vérifier et envoyer les alertes de stock automatiquement
+      try {
+        await fetch('/api/stock/process-alerts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } catch (alertError) {
+        console.error('Erreur envoi alertes stock:', alertError);
+        // On ne bloque pas si les alertes échouent
+      }
+
       // Réinitialiser le formulaire
       setCustomerId('');
       setInvoiceNumber('');

@@ -166,6 +166,7 @@ export default function RawMaterialsTab({ rawMaterials, companies }: any) {
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Nom</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Société</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Coût unitaire</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Stock</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Actions</th>
@@ -185,6 +186,18 @@ export default function RawMaterialsTab({ rawMaterials, companies }: any) {
                             onChange={(e) => setInlineData({...inlineData, name: e.target.value})}
                             className="w-full px-2 py-1 border border-indigo-300 rounded focus:ring-2 focus:ring-indigo-500"
                           />
+                        </td>
+                        <td className="px-4 py-3">
+                          <select
+                            value={inlineData.company_id || ''}
+                            onChange={(e) => setInlineData({...inlineData, company_id: e.target.value})}
+                            className="w-full px-2 py-1 border border-indigo-300 rounded focus:ring-2 focus:ring-indigo-500"
+                          >
+                            <option value="">Sélectionner...</option>
+                            {companies.map((company: any) => (
+                              <option key={company.id} value={company.id}>{company.name}</option>
+                            ))}
+                          </select>
                         </td>
                         <td className="px-4 py-3">
                           <input
@@ -213,6 +226,7 @@ export default function RawMaterialsTab({ rawMaterials, companies }: any) {
                                     .from('raw_materials')
                                     .update({
                                       name: inlineData.name,
+                                      company_id: inlineData.company_id,
                                       unit_cost: parseFloat(inlineData.unit_cost),
                                       stock: parseFloat(inlineData.stock)
                                     })
@@ -247,6 +261,9 @@ export default function RawMaterialsTab({ rawMaterials, companies }: any) {
                   return (
                     <tr key={material.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">{material.name}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {companies.find((c: any) => c.id === material.company_id)?.name || 'Non assignée'}
+                      </td>
                       <td className="px-4 py-3 text-sm text-right text-gray-900">{material.unit_cost.toFixed(2)} €</td>
                       <td className="px-4 py-3 text-sm text-right text-gray-700">{material.stock}</td>
                       <td className="px-4 py-3 text-right">
@@ -256,6 +273,7 @@ export default function RawMaterialsTab({ rawMaterials, companies }: any) {
                               setInlineEditId(material.id)
                               setInlineData({
                                 name: material.name,
+                                company_id: material.company_id,
                                 unit_cost: material.unit_cost.toString(),
                                 stock: material.stock.toString()
                               })

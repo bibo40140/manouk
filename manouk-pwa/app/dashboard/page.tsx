@@ -4,10 +4,10 @@ import { cookies } from 'next/headers'
 import StatsCards from '@/components/dashboard/StatsCards'
 import RevenueChart from '@/components/dashboard/RevenueChart'
 import CompanyFilter from '@/components/dashboard/CompanyFilter'
-import StockAlerts from '@/components/dashboard/StockAlerts'
 import TasksList from '@/components/dashboard/TasksList'
 import UrssafSummary from '@/components/dashboard/UrssafSummary'
 import ProductStats from '@/components/dashboard/ProductStats'
+import RawMaterialsStock from '@/components/dashboard/RawMaterialsStock'
 
 export default async function DashboardPage() {
 
@@ -16,6 +16,7 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   const isAdmin = user?.email === 'fabien.hicauber@gmail.com'
   const client = isAdmin ? await createServiceRoleClient() : supabase
+  console.log('🔐 Dashboard - User:', user?.email, '| isAdmin:', isAdmin, '| Using service role:', isAdmin)
   const { data: companies } = await client.from('companies').select('id, name').order('name')
   const cookieStore = await cookies()
   let cookieCompany = cookieStore.get('activeCompanyId')?.value || null
@@ -41,7 +42,7 @@ export default async function DashboardPage() {
   let invoicesQuery = client
     .from('invoices')
     .select('*, customer:customers(name), company:companies(name)')
-    .order('invoice_date', { ascending: false })
+    .order('date', { ascending: false })
   let purchasesQuery = client
     .from('purchases')
     .select('*, supplier:suppliers(name), company:companies(name)')
@@ -52,6 +53,7 @@ export default async function DashboardPage() {
   }
   const { data: invoices } = await invoicesQuery
   const { data: purchases } = await purchasesQuery
+  console.log('📊 Dashboard - Factures chargées:', invoices?.length || 0, '| User:', user?.email)
   
   // Charger les données pour les nouveaux widgets
   const { data: rawMaterials } = await client.from('raw_materials').select('*')
@@ -62,16 +64,15 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">📊 Tableau de bord</h1>
-        <CompanyFilter companies={companies || []} canSeeAllOverride={true} />
+        {isAdmin && <CompanyFilter companies={companies || []} canSeeAllOverride={true} />}
       </div>
 
       <StatsCards companyId={companyId ?? 'all'} />
       
       <RevenueChart companyId={companyId ?? 'all'} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        <StockAlerts materials={rawMaterials || []} />
-        <TasksList invoices={invoices || []} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <RawMaterialsStock materials={rawMaterials || []} />
         <UrssafSummary invoices={invoices || []} />
       </div>
       
