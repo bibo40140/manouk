@@ -1,6 +1,8 @@
 'use client'
 
 import { Line } from 'react-chartjs-2'
+import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -25,14 +27,59 @@ ChartJS.register(
 )
 
 export default function RevenueChart({ companyId }: { companyId?: string }) {
-  // TODO: Récupérer les vraies données depuis Supabase
-  // Pour l'instant, données de démonstration
+  const [chartData, setChartData] = useState<number[]>([])
+  const [labels, setLabels] = useState<string[]>([])
+
+  useEffect(() => {
+    async function fetchRevenueData() {
+      const supabase = createClient()
+      
+      // Calculer les 6 derniers mois
+      const months = []
+      const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 
+                          'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
+      
+      for (let i = 5; i >= 0; i--) {
+        const date = new Date()
+        date.setMonth(date.getMonth() - i)
+        months.push({
+          start: new Date(date.getFullYear(), date.getMonth(), 1).toISOString(),
+          end: new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59).toISOString(),
+          label: monthNames[date.getMonth()]
+        })
+      }
+
+      // Récupérer le CA pour chaque mois
+      const revenues = await Promise.all(
+        months.map(async (month) => {
+          let query = supabase
+            .from('invoices')
+            .select('total')
+            .gte('invoice_date', month.start)
+            .lte('invoice_date', month.end)
+
+          if (companyId && companyId !== 'all') {
+            query = query.eq('company_id', companyId)
+          }
+
+          const { data } = await query
+          return data?.reduce((sum, inv) => sum + (inv.total || 0), 0) || 0
+        })
+      )
+
+      setLabels(months.map(m => m.label))
+      setChartData(revenues)
+    }
+
+    fetchRevenueData()
+  }, [companyId])
+
   const data = {
-    labels: ['Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre'],
+    labels,
     datasets: [
       {
         label: 'Chiffre d\'affaires',
-        data: [1200, 1900, 1500, 2200, 1800, 2400],
+        data: chartData,
         borderColor: 'rgb(99, 102, 241)',
         backgroundColor: 'rgba(99, 102, 241, 0.1)',
         fill: true,

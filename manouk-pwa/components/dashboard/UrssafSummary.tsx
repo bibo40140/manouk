@@ -25,13 +25,27 @@ export default function UrssafSummary({ invoices }: { invoices: any[] }) {
     })
     
     const totalCA = quarterInvoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0)
-    const urssafDeclared = quarterInvoices.reduce((sum, inv) => sum + (Number(inv.urssaf_amount) || 0), 0)
+    
+    // URSSAF déclaré = factures avec urssaf_paid_date (déclaration effectuée)
+    const invoicesDeclared = quarterInvoices.filter(inv => inv.urssaf_paid_date)
+    const invoicesNotDeclared = quarterInvoices.filter(inv => !inv.urssaf_paid_date)
+    
+    const urssafDeclared = invoicesDeclared.reduce((sum, inv) => sum + (Number(inv.urssaf_amount) || 0), 0)
+    const urssafNotDeclared = invoicesNotDeclared.reduce((sum, inv) => sum + (Number(inv.urssaf_amount) || 0), 0)
+    
+    const caDeclared = invoicesDeclared.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0)
+    const caNotDeclared = invoicesNotDeclared.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0)
+    
     const urssafPaid = quarterInvoices.reduce((sum, inv) => sum + (Number(inv.urssaf_paid_amount) || 0), 0)
     const urssafDue = urssafDeclared - urssafPaid
     
     console.log(`📊 URSSAF ${label}:`, { quarterInvoices: quarterInvoices.length, totalCA, urssafDeclared, urssafPaid })
     
-    return { q, label, totalCA, urssafDeclared, urssafPaid, urssafDue, isCurrent: q === currentQuarter }
+    return { 
+      q, label, totalCA, caDeclared, caNotDeclared,
+      urssafDeclared, urssafNotDeclared, urssafPaid, urssafDue, 
+      isCurrent: q === currentQuarter 
+    }
   })
 
   return (
@@ -41,7 +55,7 @@ export default function UrssafSummary({ invoices }: { invoices: any[] }) {
       </h3>
       
       <div className="space-y-2">
-        {quarterlyData.map(({ label, totalCA, urssafDeclared, urssafPaid, urssafDue, isCurrent }) => (
+        {quarterlyData.map(({ label, totalCA, caDeclared, caNotDeclared, urssafDeclared, urssafNotDeclared, urssafPaid, urssafDue, isCurrent }) => (
           <div 
             key={label} 
             className={`p-3 rounded-lg border ${
@@ -56,10 +70,32 @@ export default function UrssafSummary({ invoices }: { invoices: any[] }) {
               </p>
               <p className="text-sm text-gray-600">CA: {totalCA.toFixed(2)} €</p>
             </div>
-            <div className="grid grid-cols-3 gap-2 text-xs">
+            
+            {/* CA déclaré / à déclarer */}
+            <div className="grid grid-cols-2 gap-2 text-xs mb-2 pb-2 border-b">
               <div>
-                <p className="text-gray-500">Déclaré</p>
+                <p className="text-gray-500">CA déclaré</p>
+                <p className="font-medium text-green-600">{caDeclared.toFixed(2)} €</p>
+              </div>
+              <div>
+                <p className="text-gray-500">CA à déclarer</p>
+                <p className={`font-medium ${caNotDeclared > 0 ? 'text-orange-600' : 'text-gray-600'}`}>
+                  {caNotDeclared.toFixed(2)} €
+                </p>
+              </div>
+            </div>
+            
+            {/* URSSAF déclaré / à déclarer / payé / reste */}
+            <div className="grid grid-cols-4 gap-2 text-xs">
+              <div>
+                <p className="text-gray-500">URSSAF déclaré</p>
                 <p className="font-medium">{urssafDeclared.toFixed(2)} €</p>
+              </div>
+              <div>
+                <p className="text-gray-500">À déclarer</p>
+                <p className={`font-medium ${urssafNotDeclared > 0 ? 'text-orange-600' : 'text-gray-600'}`}>
+                  {urssafNotDeclared.toFixed(2)} €
+                </p>
               </div>
               <div>
                 <p className="text-gray-500">Payé</p>

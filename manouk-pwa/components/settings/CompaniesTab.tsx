@@ -260,26 +260,37 @@ export default function CompaniesTab({ companies }: any) {
                                     logoUrl = publicUrlData?.publicUrl || '';
                                   }
                                   const updateData = {
-                                    code: inlineData.code,
-                                    name: inlineData.name,
-                                    email: inlineData.email,
-                                    phone: inlineData.phone,
-                                    siret: inlineData.siret,
-                                    vat_number: inlineData.vat_number,
-                                    website: inlineData.website,
-                                    address: inlineData.address,
-                                    legal_notice: inlineData.legal_notice,
-                                    logo: logoUrl
+                                    code: inlineData.code || company.code,
+                                    name: inlineData.name || company.name,
+                                    email: inlineData.email || company.email || null,
+                                    phone: inlineData.phone || null,
+                                    siret: inlineData.siret || null,
+                                    vat_number: inlineData.vat_number || null,
+                                    website: inlineData.website || null,
+                                    address: inlineData.address || null,
+                                    legal_notice: inlineData.legal_notice || null,
+                                    logo: logoUrl || company.logo || null
                                   };
-                                  const { error } = await supabase
+                                  console.log('🔄 Mise à jour société:', updateData);
+                                  const { data, error, count } = await supabase
                                     .from('companies')
                                     .update(updateData)
                                     .eq('id', company.id)
-                                  if (error) throw error
+                                    .select()
+                                  if (error) {
+                                    console.error('❌ Erreur mise à jour:', error);
+                                    throw error;
+                                  }
+                                  console.log('✅ Société mise à jour avec succès');
+                                  console.log('📊 Lignes modifiées:', count, '| Données:', data);
+                                  if (!data || data.length === 0) {
+                                    alert('⚠️ L\'update s\'est exécuté mais aucune ligne n\'a été modifiée. Problème de RLS Policy UPDATE.');
+                                  }
                                   setInlineEditId(null)
                                   setInlineData({})
                                   router.refresh()
                                 } catch (err: any) {
+                                  console.error('❌ Erreur complète:', err);
                                   alert('Erreur: ' + err.message)
                                 }
                               }}

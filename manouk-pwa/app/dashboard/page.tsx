@@ -47,18 +47,37 @@ export default async function DashboardPage() {
     .from('purchases')
     .select('*, supplier:suppliers(name), company:companies(name)')
     .order('purchase_date', { ascending: false })
+  
+  // Requêtes pour les stats (avec les champs nécessaires)
+  let statsInvoicesQuery = client
+    .from('invoices')
+    .select('total, paid, urssaf_amount, urssaf_paid_amount, urssaf_paid_date, date')
+  let statsPurchasesQuery = client
+    .from('purchases')
+    .select('quantity, unit_cost, paid, purchase_date')
+  let fixedCostsQuery = client
+    .from('fixed_costs')
+    .select('amount, frequency, company_id')
+  
   if (companyId) {
     invoicesQuery = invoicesQuery.eq('company_id', companyId)
     purchasesQuery = purchasesQuery.eq('company_id', companyId)
+    statsInvoicesQuery = statsInvoicesQuery.eq('company_id', companyId)
+    statsPurchasesQuery = statsPurchasesQuery.eq('company_id', companyId)
+    fixedCostsQuery = fixedCostsQuery.eq('company_id', companyId)
   }
+  
   const { data: invoices } = await invoicesQuery
   const { data: purchases } = await purchasesQuery
+  const { data: statsInvoices } = await statsInvoicesQuery
+  const { data: statsPurchases } = await statsPurchasesQuery
+  const { data: statsFixedCosts } = await fixedCostsQuery
   console.log('📊 Dashboard - Factures chargées:', invoices?.length || 0, '| User:', user?.email)
+  console.log('📊 Dashboard - Achats stats chargés:', statsPurchases?.length || 0, '| Premier achat:', statsPurchases?.[0])
   
   // Charger les données pour les nouveaux widgets
   const { data: rawMaterials } = await client.from('raw_materials').select('*')
   const { data: products } = await client.from('products').select('*')
-  const { data: fixedCosts } = await client.from('fixed_costs').select('*')
 
   return (
     <div className="space-y-6">
@@ -67,7 +86,13 @@ export default async function DashboardPage() {
         {isAdmin && <CompanyFilter companies={companies || []} canSeeAllOverride={true} />}
       </div>
 
-      <StatsCards companyId={companyId ?? 'all'} />
+      <StatsCards 
+        companyId={companyId ?? 'all'} 
+        isAdmin={isAdmin}
+        invoices={statsInvoices || []}
+        purchases={statsPurchases || []}
+        fixedCosts={statsFixedCosts || []}
+      />
       
       <RevenueChart companyId={companyId ?? 'all'} />
 

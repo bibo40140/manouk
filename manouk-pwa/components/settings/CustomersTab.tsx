@@ -13,6 +13,8 @@ export default function CustomersTab({ customers, companies }: any) {
   const [companyId, setCompanyId] = useState('')
   const [loading, setLoading] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<any>(null)
+  const [inlineEditId, setInlineEditId] = useState<string | null>(null)
+  const [inlineData, setInlineData] = useState<any>({})
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -141,29 +143,111 @@ export default function CustomersTab({ customers, companies }: any) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {customers.map((customer: any) => (
-                  <tr key={customer.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{customer.name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{customer.email || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{customer.company?.name || '-'}</td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex justify-end gap-3">
-                        <button
-                          onClick={() => handleEdit(customer)}
-                          className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-                        >
-                          Modifier
-                        </button>
-                        <button
-                          onClick={() => handleDelete(customer.id)}
-                          className="text-red-600 hover:text-red-800 text-sm font-medium"
-                        >
-                          Supprimer
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {customers.map((customer: any) => {
+                  const isEditing = inlineEditId === customer.id
+                  
+                  if (isEditing) {
+                    return (
+                      <tr key={customer.id} className="bg-indigo-50">
+                        <td className="px-4 py-3">
+                          <input
+                            type="text"
+                            value={inlineData.name || ''}
+                            onChange={(e) => setInlineData({...inlineData, name: e.target.value})}
+                            className="w-full px-2 py-1 border border-indigo-300 rounded focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <input
+                            type="email"
+                            value={inlineData.email || ''}
+                            onChange={(e) => setInlineData({...inlineData, email: e.target.value})}
+                            className="w-full px-2 py-1 border border-indigo-300 rounded focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <select
+                            value={inlineData.company_id || ''}
+                            onChange={(e) => setInlineData({...inlineData, company_id: e.target.value})}
+                            className="w-full px-2 py-1 border border-indigo-300 rounded focus:ring-2 focus:ring-indigo-500"
+                          >
+                            <option value="">Sélectionner...</option>
+                            {companies.map((company: any) => (
+                              <option key={company.id} value={company.id}>{company.name}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const { error } = await supabase
+                                    .from('customers')
+                                    .update({
+                                      name: inlineData.name,
+                                      email: inlineData.email,
+                                      company_id: inlineData.company_id
+                                    })
+                                    .eq('id', customer.id)
+                                  if (error) throw error
+                                  setInlineEditId(null)
+                                  setInlineData({})
+                                  router.refresh()
+                                } catch (err: any) {
+                                  alert('Erreur: ' + err.message)
+                                }
+                              }}
+                              className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                            >
+                              💾 Sauvegarder
+                            </button>
+                            <button
+                              onClick={() => {
+                                setInlineEditId(null)
+                                setInlineData({})
+                              }}
+                              className="px-3 py-1 bg-gray-500 text-white text-sm rounded hover:bg-gray-600"
+                            >
+                              ✖️ Annuler
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  }
+                  
+                  return (
+                    <tr key={customer.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{customer.name}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{customer.email || '-'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{customer.company?.name || '-'}</td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex justify-end gap-3">
+                          <button
+                            onClick={() => {
+                              setInlineEditId(customer.id)
+                              setInlineData({
+                                name: customer.name,
+                                email: customer.email || '',
+                                company_id: customer.company_id
+                              })
+                            }}
+                            className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                          >
+                            ✏️ Éditer
+                          </button>
+                          <button
+                            onClick={() => handleDelete(customer.id)}
+                            className="text-red-600 hover:text-red-800 text-sm font-medium"
+                          >
+                            🗑️ Supprimer
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
