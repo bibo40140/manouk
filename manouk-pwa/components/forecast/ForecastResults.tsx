@@ -123,11 +123,11 @@ export default function ForecastResults({ monthlyQty, months, products, rawMater
 
   // Données du graphique
   const chartData = {
-    labels: simulation.map(m => m.month),
+    labels: simulation.map((m: any) => m.month),
     datasets: [
       {
         label: 'CA (€)',
-        data: simulation.map(m => m.revenue),
+        data: simulation.map((m: any) => m.revenue),
         borderColor: 'rgb(16, 185, 129)',
         backgroundColor: 'rgba(16, 185, 129, 0.1)',
         fill: true,
@@ -135,7 +135,7 @@ export default function ForecastResults({ monthlyQty, months, products, rawMater
       },
       {
         label: 'Coûts matières (€)',
-        data: simulation.map(m => m.materialCosts),
+        data: simulation.map((m: any) => m.materialCosts),
         borderColor: 'rgb(239, 68, 68)',
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
         fill: true,
@@ -143,7 +143,7 @@ export default function ForecastResults({ monthlyQty, months, products, rawMater
       },
       {
         label: 'URSSAF (22%)',
-        data: simulation.map(m => m.urssaf),
+        data: simulation.map((m: any) => m.urssaf),
         borderColor: 'rgb(249, 115, 22)',
         backgroundColor: 'rgba(249, 115, 22, 0.1)',
         fill: true,
@@ -151,7 +151,7 @@ export default function ForecastResults({ monthlyQty, months, products, rawMater
       },
       {
         label: 'Solde cumulé (€)',
-        data: simulation.map(m => m.balance),
+        data: simulation.map((m: any) => m.balance),
         borderColor: 'rgb(59, 130, 246)',
         backgroundColor: 'rgba(59, 130, 246, 0.1)',
         fill: true,
