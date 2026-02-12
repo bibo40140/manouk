@@ -29,7 +29,7 @@ export default function StockAlerts({ materials }: { materials: any[] }) {
               </div>
               <div className="text-right">
                 <p className="text-sm font-semibold text-red-600">Stock faible</p>
-                <p className="text-xs text-gray-500">{item.unit_cost.toFixed(2)} €/unité</p>
+                <p className="text-xs text-gray-500">{item.unit_cost.toFixed(4)} €/unité</p>
               </div>
             </div>
           ))}

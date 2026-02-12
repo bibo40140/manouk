@@ -74,7 +74,7 @@ export default function RawMaterialsStock({ materials }: { materials: any[] }) {
                       Stock faible
                     </span>
                   )}
-                  <p className="text-xs text-gray-500 mt-1">{m.unit_cost?.toFixed(2)} €/unité</p>
+                  <p className="text-xs text-gray-500 mt-1">{m.unit_cost?.toFixed(4)} €/unité</p>
                 </div>
               </div>
             )

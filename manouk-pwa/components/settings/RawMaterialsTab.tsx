@@ -14,6 +14,7 @@ export default function RawMaterialsTab({ rawMaterials, companies }: any) {
   const supabase = createClient()
   
   const [name, setName] = useState('')
+  const [unit, setUnit] = useState('unité')
   const [unitCost, setUnitCost] = useState('')
   const [stock, setStock] = useState('')
   const [companyId, setCompanyId] = useState('')
@@ -27,6 +28,7 @@ export default function RawMaterialsTab({ rawMaterials, companies }: any) {
     try {
       const data = {
         name,
+        unit,
         unit_cost: parseFloat(unitCost),
         stock: parseFloat(stock),
         company_id: companyId
@@ -46,6 +48,7 @@ export default function RawMaterialsTab({ rawMaterials, companies }: any) {
       }
 
       setName('')
+      setUnit('unité')
       setUnitCost('')
       setStock('')
       setCompanyId('')
@@ -61,6 +64,7 @@ export default function RawMaterialsTab({ rawMaterials, companies }: any) {
   const handleEdit = (material: any) => {
     setEditingMaterial(material)
     setName(material.name)
+    setUnit(material.unit || 'unité')
     setUnitCost(material.unit_cost.toString())
     setStock(material.stock.toString())
     setCompanyId(material.company_id)
@@ -99,6 +103,25 @@ export default function RawMaterialsTab({ rawMaterials, companies }: any) {
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Unité
+            </label>
+            <select
+              value={unit}
+              onChange={(e) => setUnit(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            >
+              <option value="unité">unité</option>
+              <option value="mètre">mètre (m)</option>
+              <option value="centimètre">centimètre (cm)</option>
+              <option value="kilogramme">kilogramme (kg)</option>
+              <option value="gramme">gramme (g)</option>
+              <option value="litre">litre (L)</option>
+              <option value="millilitre">millilitre (mL)</option>
+              <option value="lot">lot</option>
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -167,6 +190,7 @@ export default function RawMaterialsTab({ rawMaterials, companies }: any) {
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Nom</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Unité</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Société</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Coût unitaire</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Stock</th>
@@ -187,6 +211,22 @@ export default function RawMaterialsTab({ rawMaterials, companies }: any) {
                             onChange={(e) => setInlineData({...inlineData, name: e.target.value})}
                             className="w-full px-2 py-1 border border-indigo-300 rounded focus:ring-2 focus:ring-indigo-500"
                           />
+                        </td>
+                        <td className="px-4 py-3">
+                          <select
+                            value={inlineData.unit || 'unité'}
+                            onChange={(e) => setInlineData({...inlineData, unit: e.target.value})}
+                            className="w-full px-2 py-1 border border-indigo-300 rounded focus:ring-2 focus:ring-indigo-500"
+                          >
+                            <option value="unité">unité</option>
+                            <option value="mètre">mètre</option>
+                            <option value="centimètre">cm</option>
+                            <option value="kilogramme">kg</option>
+                            <option value="gramme">g</option>
+                            <option value="litre">L</option>
+                            <option value="millilitre">mL</option>
+                            <option value="lot">lot</option>
+                          </select>
                         </td>
                         <td className="px-4 py-3">
                           <select
@@ -228,6 +268,7 @@ export default function RawMaterialsTab({ rawMaterials, companies }: any) {
                                     .from('raw_materials')
                                     .update({
                                       name: inlineData.name,
+                                      unit: inlineData.unit,
                                       company_id: inlineData.company_id,
                                       unit_cost: parseFloat(inlineData.unit_cost),
                                       stock: parseFloat(inlineData.stock)
@@ -263,11 +304,12 @@ export default function RawMaterialsTab({ rawMaterials, companies }: any) {
                   return (
                     <tr key={material.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">{material.name}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{material.unit || 'unité'}</td>
                       <td className="px-4 py-3 text-sm text-gray-700">
                         {companies.find((c: any) => c.id === material.company_id)?.name || 'Non assignée'}
                       </td>
                       <td className="px-4 py-3 text-sm text-right text-gray-900">
-                        {material.unit_cost < 0.01 ? material.unit_cost.toFixed(4) : material.unit_cost.toFixed(2)} €
+                        {Number(material.unit_cost).toFixed(4)} €/{material.unit || 'u'}
                       </td>
                       <td className="px-4 py-3 text-sm text-right text-gray-700">{material.stock}</td>
                       <td className="px-4 py-3 text-right">
@@ -277,6 +319,7 @@ export default function RawMaterialsTab({ rawMaterials, companies }: any) {
                               setInlineEditId(material.id)
                               setInlineData({
                                 name: material.name,
+                                unit: material.unit || 'unité',
                                 company_id: material.company_id,
                                 unit_cost: material.unit_cost.toString(),
                                 stock: material.stock.toString()
