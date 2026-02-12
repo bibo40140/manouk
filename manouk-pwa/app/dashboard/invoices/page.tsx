@@ -100,20 +100,27 @@ export default async function InvoicesPage() {
     invoicesQuery = invoicesQuery.eq('company_id', companyId)
   }
   
-  const { data: invoices } = await invoicesQuery
+  const { data: rawInvoices } = await invoicesQuery
+
+  // Transformer les données Supabase: customer et company sont des tableaux, on prend le premier élément
+  const invoices = (rawInvoices || []).map((inv: any) => ({
+    ...inv,
+    customer: Array.isArray(inv.customer) ? inv.customer[0] : inv.customer,
+    company: Array.isArray(inv.company) ? inv.company[0] : inv.company,
+  }))
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">📄 Factures</h1>
         <div className="flex items-center gap-4">
-          <ExportButton invoices={invoices || []} />
+          <ExportButton invoices={invoices} />
           <InvoiceModal companies={allCompanies || []} customers={customers || []} products={productsWithSplits || []} />
         </div>
       </div>
 
       <InvoicesList 
-        invoices={invoices || []} 
+        invoices={invoices} 
         companies={companies || []}
         customers={customers || []}
         products={products || []}
