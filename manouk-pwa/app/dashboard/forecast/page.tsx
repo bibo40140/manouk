@@ -12,15 +12,26 @@ export default async function ForecastPage() {
   }
   
   const isAdmin = user?.email === 'fabien.hicauber@gmail.com'
-  const client = isAdmin ? await createServiceRoleClient() : supabase
+  const client = await createServiceRoleClient()
   
-  // Récupère les sociétés (toutes pour admin, filtrées pour user normal)
-  let companiesQuery = client.from('companies').select('*').order('name')
+  // Charger TOUTES les sociétés
+  const { data: allCompanies } = await client.from('companies').select('*').order('name')
+  
+  // Pour les utilisateurs non-admin, filtrer par user_companies
+  let companies = allCompanies || []
   if (!isAdmin) {
-    companiesQuery = companiesQuery.eq('user_id', user.id)
+    const { data: userCompRel } = await client
+      .from('user_companies')
+      .select('company_id')
+      .eq('user_id', user.id)
+    
+    if (userCompRel && userCompRel.length > 0) {
+      const userCompanyIds = userCompRel.map(r => r.company_id)
+      companies = (allCompanies || []).filter(c => userCompanyIds.includes(c.id))
+    } else {
+      companies = []
+    }
   }
-  
-  const { data: companies } = await companiesQuery
   
   if (!companies || companies.length === 0) {
     return <div className="p-8 text-red-600">Aucune société associée à votre compte.</div>

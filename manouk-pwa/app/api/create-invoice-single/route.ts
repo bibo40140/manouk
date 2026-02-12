@@ -97,6 +97,9 @@ export async function POST(req: NextRequest) {
       throw linesError;
     }
 
+    // NOTE: Le décompte du stock est géré AVANT la création des factures
+    // dans InvoiceModal.tsx pour éviter les décomptes multiples en cas de split
+
     return NextResponse.json({ ok: true, invoice });
   } catch (err: any) {
     console.error('Erreur création facture:', err);

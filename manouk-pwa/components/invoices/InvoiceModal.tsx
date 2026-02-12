@@ -130,8 +130,30 @@ export default function InvoiceModal({ companies, customers, products }: any) {
       alert('Ajoutez au moins une ligne à la facture');
       return;
     }
+    if (loading) {
+      console.warn('⚠️ handleSubmit déjà en cours, ignoré');
+      return;
+    }
     setLoading(true);
     try {
+      // 🆕 DÉCOMPTER LE STOCK UNE SEULE FOIS (avant les splits) via API
+      const timestamp = new Date().toISOString();
+      console.log(`\n\n[${timestamp}] 📦 APPEL /api/deduct-stock avec`, lines.length, 'lignes');
+      console.log('Lignes:', lines);
+      
+      const stockRes = await fetch('/api/deduct-stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lines })
+      });
+      
+      const stockData = await stockRes.json();
+      if (!stockData.ok) {
+        console.error('❌ Erreur décompte stock:', stockData.error);
+        throw new Error(stockData.error);
+      }
+      console.log('✅ Stock décompté avec succès');
+      
       // Regrouper les lignes par société selon la répartition (splits)
       const companyMap: Record<string, { total: number, lines: any[] }> = {};
       

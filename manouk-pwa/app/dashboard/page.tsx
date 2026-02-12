@@ -8,6 +8,7 @@ import TasksList from '@/components/dashboard/TasksList'
 import UrssafSummary from '@/components/dashboard/UrssafSummary'
 import ProductStats from '@/components/dashboard/ProductStats'
 import RawMaterialsStock from '@/components/dashboard/RawMaterialsStock'
+import ProductionButton from '@/components/dashboard/ProductionButton'
 
 export default async function DashboardPage() {
 
@@ -83,7 +84,10 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">📊 Tableau de bord</h1>
-        {isAdmin && <CompanyFilter companies={companies || []} canSeeAllOverride={true} />}
+        <div className="flex gap-3 items-center">
+          <ProductionButton products={products || []} />
+          {isAdmin && <CompanyFilter companies={companies || []} canSeeAllOverride={true} />}
+        </div>
       </div>
 
       <StatsCards 
