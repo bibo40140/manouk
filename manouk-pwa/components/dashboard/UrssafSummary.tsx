@@ -19,16 +19,18 @@ export default function UrssafSummary({ invoices }: { invoices: any[] }) {
   ]
   
   const quarterlyData = quarters.map(({ q, label, months }) => {
+    // Filtrer les factures du trimestre ET qui sont COMPLÈTEMENT payées
     const quarterInvoices = invoices.filter(inv => {
       const date = new Date(inv.date)
-      return date.getFullYear() === currentYear && months.includes(date.getMonth())
+      const isPaid = Number(inv.paid) >= Number(inv.total) // Vérifier que le montant payé >= total
+      return date.getFullYear() === currentYear && months.includes(date.getMonth()) && isPaid
     })
     
     const totalCA = quarterInvoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0)
     
-    // URSSAF déclaré = factures avec urssaf_paid_date (déclaration effectuée)
-    const invoicesDeclared = quarterInvoices.filter(inv => inv.urssaf_paid_date)
-    const invoicesNotDeclared = quarterInvoices.filter(inv => !inv.urssaf_paid_date)
+    // URSSAF déclaré = factures avec urssaf_declared_date (déclaration effectuée)
+    const invoicesDeclared = quarterInvoices.filter(inv => inv.urssaf_declared_date)
+    const invoicesNotDeclared = quarterInvoices.filter(inv => !inv.urssaf_declared_date)
     
     const urssafDeclared = invoicesDeclared.reduce((sum, inv) => sum + (Number(inv.urssaf_amount) || 0), 0)
     const urssafNotDeclared = invoicesNotDeclared.reduce((sum, inv) => sum + (Number(inv.urssaf_amount) || 0), 0)

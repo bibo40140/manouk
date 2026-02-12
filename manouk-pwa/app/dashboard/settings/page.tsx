@@ -1,6 +1,9 @@
 import { createClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import SettingsTabs from '@/components/settings/SettingsTabs'
+import GlobalExportButton from '@/components/settings/GlobalExportButton'
+import CompanyFilter from '@/components/dashboard/CompanyFilter'
 
 
 export default async function SettingsPage() {
@@ -11,8 +14,10 @@ export default async function SettingsPage() {
   }
   const isAdmin = user?.email === 'fabien.hicauber@gmail.com'
   const client = isAdmin ? await createServiceRoleClient() : supabase
-  // Récupère les sociétés visibles
-  const { data: companies } = await client.from('companies').select('*').order('name')
+  
+  // IMPORTANT: Toujours charger TOUTES les sociétés (bypass RLS) pour permettre l'édition des splits
+  const serviceClient = await createServiceRoleClient()
+  const { data: companies } = await serviceClient.from('companies').select('*').order('name')
   
   // Charge les produits ET leurs splits
   const { data: products } = await client.from('products').select('*').order('name')
@@ -37,9 +42,31 @@ export default async function SettingsPage() {
   const { data: suppliers } = await client.from('suppliers').select('*, company:companies(name)').order('name')
   const { data: fixedCosts } = await client.from('fixed_costs').select('*').order('name')
 
+  // Récupérer la société active depuis le cookie
+  const cookieCompany = (await cookies()).get('activeCompanyId')?.value || null
+  let companyId: string | null = null
+  if (cookieCompany && cookieCompany !== 'all' && companies) {
+    const found = companies.find(c => c.id === cookieCompany)
+    companyId = found ? found.id : null
+  } else if (cookieCompany === 'all') {
+    companyId = null
+  }
+
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900">⚙️ Paramètres</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold text-gray-900">⚙️ Paramètres</h1>
+        <CompanyFilter companies={companies || []} canSeeAllOverride={isAdmin || (companies ? companies.length > 1 : false)} />
+      </div>
+      
+      <div className="bg-white rounded-xl shadow-md p-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">📊 Export des données</h2>
+        <p className="text-gray-600 mb-4">
+          Exportez toutes vos données (factures, achats, clients, produits + statistiques) au format Excel.
+          L'export respecte le filtre de société sélectionné.
+        </p>
+        <GlobalExportButton companyId={companyId || 'all'} />
+      </div>
       
       <SettingsTabs 
         companies={companies || []}

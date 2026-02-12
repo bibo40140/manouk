@@ -1,137 +1,506 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createTransport } from 'nodemailer';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import { createClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 
 
 
-// Générateur PDF avancé, marges, logo, blocs complets, tableau aligné, totaux encadrés, pied de page élégant
+// Générateur PDF professionnel avec toutes les informations de la société
 async function generateInvoicePDF({ company, customer, invoice, lines }: any) {
-
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([595, 842]); // A4 portrait
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const left = 40, right = 555, width = right - left;
-  let y = 792;
+  
+  const margin = 50;
+  const pageWidth = 595;
+  const pageHeight = 842;
+  const contentWidth = pageWidth - (margin * 2);
+  
+  let y = pageHeight - margin;
 
-  // Couleurs
-  const primary = rgb(0.13, 0.36, 0.62); // bleu doux
-  const lightBg = rgb(0.96, 0.98, 1);
-  const tableHeader = rgb(0.85, 0.91, 0.98);
-  const tableBorder = rgb(0.7,0.7,0.7);
-  const legalColor = rgb(0.4,0.4,0.4);
+  // Couleurs modernes - Bleu Manouk
+  const primaryColor = rgb(0.2, 0.4, 0.7); // Bleu professionnel
+  const secondaryColor = rgb(0.95, 0.95, 0.95); // Gris clair
+  const accentColor = rgb(0.3, 0.5, 0.8); // Bleu vif
+  const textColor = rgb(0.2, 0.2, 0.2);
+  const borderColor = rgb(0.8, 0.8, 0.8);
 
-
-  // --- EN-TÊTE ---
-  // Logo à gauche, titre à droite
-  let headerHeight = 60;
-  let logoWidth = 80, logoHeight = 50;
-  let logoDrawn = false;
-  if (company.logo) {
+  // === HEADER AVEC LOGO ===
+  let logoHeight = 0;
+  const logoUrl = company.logo_url || company.logo;
+  
+  console.log('🖼️ Tentative chargement logo:', logoUrl);
+  
+  if (logoUrl) {
     try {
-      const logoUrl = company.logo;
+      console.log('🖼️ Téléchargement du logo depuis:', logoUrl);
       const res = await fetch(logoUrl);
+      
+      if (!res.ok) {
+        console.error('🖼️ Erreur HTTP lors du téléchargement:', res.status, res.statusText);
+        throw new Error(`HTTP ${res.status}`);
+      }
+      
       const imgBytes = await res.arrayBuffer();
+      console.log('🖼️ Logo téléchargé, taille:', imgBytes.byteLength, 'bytes');
+      
       const ext = logoUrl.split('.').pop()?.toLowerCase();
+      console.log('🖼️ Extension détectée:', ext);
+      
       let img;
+      
       if (ext === 'png') img = await pdfDoc.embedPng(imgBytes);
-      else img = await pdfDoc.embedJpg(imgBytes);
-      page.drawImage(img, { x: left, y: y - logoHeight + 10, width: logoWidth, height: logoHeight });
-      logoDrawn = true;
-    } catch (e) {}
+      else if (ext === 'jpg' || ext === 'jpeg') img = await pdfDoc.embedJpg(imgBytes);
+      else {
+        console.error('🖼️ Format non supporté:', ext);
+        throw new Error('Format non supporté');
+      }
+      
+      if (img) {
+        const imgDims = img.scale(0.3);
+        const maxLogoHeight = 80;
+        const maxLogoWidth = 150;
+        
+        let width = imgDims.width;
+        let height = imgDims.height;
+        
+        if (height > maxLogoHeight) {
+          width = width * (maxLogoHeight / height);
+          height = maxLogoHeight;
+        }
+        if (width > maxLogoWidth) {
+          height = height * (maxLogoWidth / width);
+          width = maxLogoWidth;
+        }
+        
+        console.log('🖼️ Logo intégré au PDF, dimensions:', width, 'x', height);
+        
+        page.drawImage(img, { 
+          x: margin, 
+          y: y - height, 
+          width, 
+          height 
+        });
+        logoHeight = height;
+      }
+    } catch (e) {
+      console.error('🖼️ Erreur chargement logo:', e);
+    }
+  } else {
+    console.log('🖼️ Aucun logo configuré pour cette société');
   }
 
-  // Titre à droite du logo
-  const titleX = left + logoWidth + 20;
-  page.drawText('FACTURE', { x: titleX, y: y - 5, size: 28, font: boldFont, color: primary });
+  // Bloc société (en haut à droite)
+  const companyBlockX = pageWidth - margin - 200;
+  let yCompany = y;
+  
+  page.drawText(company.name || 'SOCIÉTÉ', { 
+    x: companyBlockX, 
+    y: yCompany, 
+    size: 12, 
+    font: boldFont, 
+    color: primaryColor 
+  });
+  yCompany -= 15;
+  
+  if (company.address) {
+    const addressLines = company.address.split('\n');
+    addressLines.forEach((line: string) => {
+      page.drawText(line, { x: companyBlockX, y: yCompany, size: 9, font, color: textColor });
+      yCompany -= 12;
+    });
+  }
+  
+  if (company.siret) {
+    page.drawText(`SIRET: ${company.siret}`, { 
+      x: companyBlockX, 
+      y: yCompany, 
+      size: 9, 
+      font, 
+      color: textColor 
+    });
+    yCompany -= 12;
+  }
+  
+  if (company.vat_number) {
+    page.drawText(`N° TVA: ${company.vat_number}`, { 
+      x: companyBlockX, 
+      y: yCompany, 
+      size: 9, 
+      font, 
+      color: textColor 
+    });
+    yCompany -= 12;
+  }
+  
+  if (company.phone) {
+    page.drawText(`Tél: ${company.phone}`, { 
+      x: companyBlockX, 
+      y: yCompany, 
+      size: 9, 
+      font, 
+      color: textColor 
+    });
+    yCompany -= 12;
+  }
+  
+  if (company.email) {
+    page.drawText(company.email, { 
+      x: companyBlockX, 
+      y: yCompany, 
+      size: 9, 
+      font, 
+      color: accentColor 
+    });
+    yCompany -= 12;
+  }
+  
+  if (company.website) {
+    page.drawText(company.website, { 
+      x: companyBlockX, 
+      y: yCompany, 
+      size: 9, 
+      font, 
+      color: accentColor 
+    });
+    yCompany -= 12;
+  }
 
-  // Infos société sous le titre, bien espacées
-  let ySoc = y - 35;
-  page.drawText(company.name || '', { x: titleX, y: ySoc, size: 13, font: boldFont, color: primary }); ySoc -= 13;
-  if (company.address) { page.drawText(company.address, { x: titleX, y: ySoc, size: 10, font }); ySoc -= 12; }
-  if (company.siret) { page.drawText('SIRET : ' + company.siret, { x: titleX, y: ySoc, size: 10, font }); ySoc -= 12; }
-  if (company.vat_number) { page.drawText('TVA : ' + company.vat_number, { x: titleX, y: ySoc, size: 10, font }); ySoc -= 12; }
-  if (company.phone) { page.drawText('Tél : ' + company.phone, { x: titleX, y: ySoc, size: 10, font }); ySoc -= 12; }
-  if (company.email) { page.drawText(company.email, { x: titleX, y: ySoc, size: 10, font }); ySoc -= 12; }
-  if (company.website) { page.drawText(company.website, { x: titleX, y: ySoc, size: 10, font }); ySoc -= 12; }
+  // Positionner y après le logo ou le bloc société (le plus bas)
+  y = Math.min(y - logoHeight, yCompany) - 30;
 
-  // Date et numéro à droite, alignés
-  let yFact = y - 5;
-  const factX = right - 160;
-  page.drawText(`Facture n°${invoice.invoice_number}`, { x: factX, y: yFact, size: 12, font: boldFont }); yFact -= 16;
-  page.drawText(`Date : ${invoice.date}`, { x: factX, y: yFact, size: 12, font });
+  // === TITRE FACTURE ===
+  page.drawRectangle({
+    x: margin,
+    y: y - 40,
+    width: contentWidth,
+    height: 40,
+    color: primaryColor
+  });
+  
+  page.drawText('FACTURE', { 
+    x: margin + 15, 
+    y: y - 25, 
+    size: 20, 
+    font: boldFont, 
+    color: rgb(1, 1, 1) 
+  });
+  
+  page.drawText(`N° ${invoice.invoice_number}`, { 
+    x: pageWidth - margin - 120, 
+    y: y - 18, 
+    size: 11, 
+    font: boldFont, 
+    color: rgb(1, 1, 1) 
+  });
+  
+  const invoiceDate = new Date(invoice.date).toLocaleDateString('fr-FR');
+  page.drawText(`Date: ${invoiceDate}`, { 
+    x: pageWidth - margin - 120, 
+    y: y - 32, 
+    size: 10, 
+    font, 
+    color: rgb(1, 1, 1) 
+  });
+  
+  y -= 60;
 
-  // Calculer le y de départ du bloc client (le plus bas des blocs précédents)
-  y = Math.min(ySoc, yFact) - 25;
-  page.drawLine({ start: { x: left, y }, end: { x: right, y }, thickness: 1, color: tableBorder });
-  y -= 18;
+  // === INFORMATIONS CLIENT ===
+  page.drawRectangle({
+    x: margin,
+    y: y - 90,
+    width: contentWidth / 2 - 10,
+    height: 90,
+    borderColor: borderColor,
+    borderWidth: 1
+  });
+  
+  page.drawText('FACTURÉ À:', { 
+    x: margin + 10, 
+    y: y - 15, 
+    size: 9, 
+    font: boldFont, 
+    color: primaryColor 
+  });
+  
+  let yClient = y - 30;
+  page.drawText(customer.name || 'Client', { 
+    x: margin + 10, 
+    y: yClient, 
+    size: 11, 
+    font: boldFont, 
+    color: textColor 
+  });
+  yClient -= 15;
+  
+  if (customer.address) {
+    const custAddressLines = customer.address.split('\n').slice(0, 2);
+    custAddressLines.forEach((line: string) => {
+      page.drawText(line, { x: margin + 10, y: yClient, size: 9, font, color: textColor });
+      yClient -= 12;
+    });
+  }
+  
+  if (customer.phone) {
+    page.drawText(`Tél: ${customer.phone}`, { 
+      x: margin + 10, 
+      y: yClient, 
+      size: 9, 
+      font, 
+      color: textColor 
+    });
+    yClient -= 12;
+  }
+  
+  if (customer.email) {
+    page.drawText(customer.email, { 
+      x: margin + 10, 
+      y: yClient, 
+      size: 9, 
+      font, 
+      color: accentColor 
+    });
+  }
 
-  // Bloc client (gauche)
-  let yCli = y;
-  page.drawText('Facturé à :', { x: left, y: yCli, size: 11, font: boldFont, color: rgb(0.2,0.2,0.2) }); yCli -= 13;
-  page.drawText(customer.name || '', { x: left, y: yCli, size: 12, font: boldFont }); yCli -= 13;
-  if (customer.address) { page.drawText(customer.address, { x: left, y: yCli, size: 10, font }); yCli -= 11; }
-  if (customer.phone) { page.drawText('Tél : ' + customer.phone, { x: left, y: yCli, size: 10, font }); yCli -= 11; }
-  if (customer.email) { page.drawText(customer.email, { x: left, y: yCli, size: 10, font }); yCli -= 11; }
-  y = yCli - 18;
+  y -= 110;
 
-  // Tableau produits
-  // En-tête tableau
-  page.drawRectangle({ x: left, y, width: width, height: 22, color: tableHeader });
-  page.drawText('DESCRIPTION', { x: left + 8, y: y + 7, size: 10, font: boldFont, color: primary });
-  page.drawText('PRIX', { x: left + 220, y: y + 7, size: 10, font: boldFont, color: primary });
-  page.drawText('QUANTITÉ', { x: left + 320, y: y + 7, size: 10, font: boldFont, color: primary });
-  page.drawText('TOTAL', { x: left + 420, y: y + 7, size: 10, font: boldFont, color: primary });
-  y -= 22;
-
-  // Lignes produits (alternance gris/blanc)
+  // === TABLEAU DES PRODUITS ===
+  // En-tête
+  page.drawRectangle({
+    x: margin,
+    y: y - 25,
+    width: contentWidth,
+    height: 25,
+    color: secondaryColor
+  });
+  
+  page.drawText('DESCRIPTION', { 
+    x: margin + 10, 
+    y: y - 17, 
+    size: 10, 
+    font: boldFont, 
+    color: textColor 
+  });
+  page.drawText('QTÉ', { 
+    x: margin + 310, 
+    y: y - 17, 
+    size: 10, 
+    font: boldFont, 
+    color: textColor 
+  });
+  page.drawText('PRIX U.', { 
+    x: margin + 360, 
+    y: y - 17, 
+    size: 10, 
+    font: boldFont, 
+    color: textColor 
+  });
+  page.drawText('TOTAL', { 
+    x: margin + 430, 
+    y: y - 17, 
+    size: 10, 
+    font: boldFont, 
+    color: textColor 
+  });
+  
+  y -= 25;
+  
+  // Lignes de produits
   lines.forEach((line: any, idx: number) => {
-    page.drawRectangle({ x: left, y, width: width, height: 18, color: idx % 2 === 0 ? lightBg : rgb(1,1,1) });
-    page.drawText(line.product_name || '', { x: left + 8, y: y + 5, size: 10, font });
-    page.drawText((line.unit_price ?? line.price ?? 0).toFixed(2) + ' €', { x: left + 220, y: y + 5, size: 10, font });
-    page.drawText(String(line.quantity), { x: left + 340, y: y + 5, size: 10, font });
-    page.drawText((line.total ?? ((line.unit_price ?? line.price ?? 0) * (line.quantity ?? 1))).toFixed(2) + ' €', { x: left + 420, y: y + 5, size: 10, font });
-    y -= 18;
+    const rowHeight = 22;
+    
+    if (idx % 2 === 0) {
+      page.drawRectangle({
+        x: margin,
+        y: y - rowHeight,
+        width: contentWidth,
+        height: rowHeight,
+        color: rgb(0.98, 0.98, 0.98)
+      });
+    }
+    
+    const productName = line.product_name || 'Produit';
+    page.drawText(productName, { 
+      x: margin + 10, 
+      y: y - 15, 
+      size: 10, 
+      font, 
+      color: textColor,
+      maxWidth: 280
+    });
+    
+    const quantity = String(line.quantity || 1);
+    page.drawText(quantity, { 
+      x: margin + 320, 
+      y: y - 15, 
+      size: 10, 
+      font, 
+      color: textColor 
+    });
+    
+    const unitPrice = (line.unit_price ?? line.price ?? 0).toFixed(2) + ' €';
+    page.drawText(unitPrice, { 
+      x: margin + 365, 
+      y: y - 15, 
+      size: 10, 
+      font, 
+      color: textColor 
+    });
+    
+    const total = (line.total ?? ((line.unit_price ?? line.price ?? 0) * (line.quantity ?? 1))).toFixed(2) + ' €';
+    page.drawText(total, { 
+      x: margin + 435, 
+      y: y - 15, 
+      size: 10, 
+      font, 
+      color: textColor 
+    });
+    
+    y -= rowHeight;
   });
 
-  // Totaux encadrés à droite
-  y -= 10;
-    const sousTotal = lines.reduce((sum: number, l: any) => sum + (l.total ?? ((l.unit_price ?? l.price ?? 0) * (l.quantity ?? 1))), 0);
-  const tva = 0; // À adapter si TVA
-  const total = invoice.total;
+  // Ligne de séparation
+  page.drawLine({
+    start: { x: margin, y: y },
+    end: { x: pageWidth - margin, y: y },
+    thickness: 1,
+    color: borderColor
+  });
+  
+  y -= 40;
+
+  // === TOTAUX ===
+  const totalAmount = invoice.total || 0;
+  const tvaAmount = 0; // TVA si applicable
+  
+  const totalsX = pageWidth - margin - 180;
+  
   // Sous-total
-  page.drawText('Sous total :', { x: left + 340, y, size: 11, font: boldFont });
-  page.drawText(sousTotal.toFixed(2) + ' €', { x: left + 440, y, size: 11, font: boldFont });
-  y -= 16;
+  page.drawText('Sous-total HT:', { 
+    x: totalsX, 
+    y, 
+    size: 10, 
+    font, 
+    color: textColor 
+  });
+  page.drawText(totalAmount.toFixed(2) + ' €', { 
+    x: totalsX + 100, 
+    y, 
+    size: 10, 
+    font: boldFont, 
+    color: textColor 
+  });
+  y -= 18;
+  
   // TVA
-  page.drawText('TVA (0%) :', { x: left + 340, y, size: 11, font: boldFont });
-  page.drawText(tva.toFixed(2) + ' €', { x: left + 440, y, size: 11, font: boldFont });
-  y -= 16;
-  // Encadré total
-  page.drawRectangle({ x: left + 340, y: y - 2, width: 155, height: 18, color: primary });
-  page.drawText('TOTAL :', { x: left + 345, y: y + 3, size: 12, font: boldFont, color: rgb(1,1,1) });
-  page.drawText(total.toFixed(2) + ' €', { x: left + 440, y: y + 3, size: 12, font: boldFont, color: rgb(1,1,1) });
+  page.drawText('TVA (0%):', { 
+    x: totalsX, 
+    y, 
+    size: 10, 
+    font, 
+    color: textColor 
+  });
+  page.drawText(tvaAmount.toFixed(2) + ' €', { 
+    x: totalsX + 100, 
+    y, 
+    size: 10, 
+    font: boldFont, 
+    color: textColor 
+  });
   y -= 30;
+  
+  // Total TTC
+  page.drawRectangle({
+    x: totalsX - 10,
+    y: y - 5,
+    width: 180,
+    height: 30,
+    color: primaryColor
+  });
+  
+  page.drawText('TOTAL TTC:', { 
+    x: totalsX, 
+    y: y + 7, 
+    size: 12, 
+    font: boldFont, 
+    color: rgb(1, 1, 1) 
+  });
+  page.drawText(totalAmount.toFixed(2) + ' €', { 
+    x: totalsX + 100, 
+    y: y + 7, 
+    size: 12, 
+    font: boldFont, 
+    color: rgb(1, 1, 1) 
+  });
 
-  // Mentions légales (bas de page, toute largeur)
-  let yLegal = 80;
+  // === BAS DE PAGE ===
+  let yFooter = 120;
+  
+  // Mentions légales
   if (company.legal_notice) {
-    page.drawRectangle({ x: left, y: yLegal, width: width, height: 30, color: rgb(1,1,1) });
-    page.drawText(company.legal_notice, { x: left + 5, y: yLegal + 18, size: 9, font, color: legalColor, maxWidth: width - 10 });
-    yLegal -= 10;
+    page.drawRectangle({
+      x: margin,
+      y: yFooter - 35,
+      width: contentWidth,
+      height: 35,
+      color: rgb(0.97, 0.97, 0.97)
+    });
+    
+    page.drawText('Mentions légales:', { 
+      x: margin + 10, 
+      y: yFooter - 15, 
+      size: 8, 
+      font: boldFont, 
+      color: textColor 
+    });
+    
+    const legalText = company.legal_notice.substring(0, 200);
+    const legalLines = legalText.match(/.{1,90}/g) || [legalText];
+    let yLegal = yFooter - 27;
+    
+    legalLines.slice(0, 2).forEach((line: string) => {
+      page.drawText(line, { 
+        x: margin + 10, 
+        y: yLegal, 
+        size: 7, 
+        font, 
+        color: rgb(0.4, 0.4, 0.4) 
+      });
+      yLegal -= 9;
+    });
+    
+    yFooter -= 45;
   }
+  
+  // Informations de paiement
+  page.drawText('Conditions de paiement:', { 
+    x: margin, 
+    y: yFooter, 
+    size: 9, 
+    font: boldFont, 
+    color: textColor 
+  });
+  yFooter -= 25;
+  
+  // Message de remerciement
+  page.drawText('Merci de votre confiance !', { 
+    x: pageWidth - margin - 150, 
+    y: 60, 
+    size: 10, 
+    font: boldFont, 
+    color: primaryColor 
+  });
+  
+  // Numéro de page
+  page.drawText('Page 1/1', { 
+    x: pageWidth / 2 - 20, 
+    y: 30, 
+    size: 8, 
+    font, 
+    color: rgb(0.6, 0.6, 0.6) 
+  });
 
-  // Pied de page (RIB, conditions, remerciement)
-  let yFooter = 50;
-  if (company.rib) {
-    page.drawText('RIB : ' + company.rib, { x: left, y: yFooter, size: 9, font });
-    yFooter -= 12;
-  }
-  page.drawText('Conditions de paiement : Paiement sous 30 jours', { x: left, y: yFooter, size: 9, font });
-  page.drawText('MERCI DE VOTRE CONFIANCE', { x: right - 180, y: yFooter, size: 10, font: boldFont, color: primary });
-
-  // Correction : retourner explicitement le PDF généré
   return await pdfDoc.save();
 }
 
@@ -148,7 +517,7 @@ export async function POST(req: NextRequest) {
     let transporter;
     let smtp: any = {};
     try {
-      const supabase = await createClient();
+      const supabase = await createServiceRoleClient();
       const { data, error } = await supabase
         .from('settings')
         .select('key, value')
@@ -173,9 +542,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Erreur config SMTP', details: String(err) }, { status: 500 });
     }
 
+    // Enrichir les données des sociétés depuis la base de données
+    // ⚠️ Utiliser serviceRoleClient pour bypass RLS et charger TOUTES les sociétés
+    const supabase = await createServiceRoleClient();
+    const enrichedInvoices = [];
+    
+    for (const inv of invoices) {
+      // Charger TOUTES les données de la société depuis la DB
+      const { data: companyData, error: companyError } = await supabase
+        .from('companies')
+        .select('id, name, code, email, address, siret, vat_number, phone, website, legal_notice, logo_url')
+        .eq('id', inv.company?.id || inv.invoice?.company_id)
+        .single();
+      
+      if (companyError) {
+        console.error('Erreur chargement société:', companyError);
+      }
+      
+      enrichedInvoices.push({
+        ...inv,
+        company: companyData || inv.company
+      });
+      
+      console.log('📄 Données société pour PDF:', companyData);
+    }
+
     // Générer tous les PDFs
     const attachments = [];
-    for (const inv of invoices) {
+    for (const inv of enrichedInvoices) {
       try {
         const pdfBytes: Uint8Array = await generateInvoicePDF(inv);
         if (!pdfBytes || typeof pdfBytes.length !== 'number') {
@@ -202,8 +596,7 @@ export async function POST(req: NextRequest) {
       });
       // Marquer chaque facture comme envoyée
       try {
-        const supabase = await createClient();
-        for (const inv of invoices) {
+        for (const inv of enrichedInvoices) {
           if (inv.invoice?.id) {
             await supabase.from('invoices').update({ email_sent: true, email_sent_date: new Date().toISOString().slice(0,10) }).eq('id', inv.invoice.id);
           }

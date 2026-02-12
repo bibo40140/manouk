@@ -52,6 +52,11 @@ export default function InvoiceModal({ companies, customers, products }: any) {
       .from('product_company_splits')
       .select('*')
       .eq('product_id', productId)
+    
+    console.log('🔍 Recherche splits pour produit', productId);
+    console.log('🔍 Splits trouvés dans la DB:', splitsData);
+    console.log('🔍 Erreur?', error);
+    
     if (!error && splitsData) {
       return companies.map((c: any) => {
         const found = splitsData.find((s: any) => s.company_id === c.id)
@@ -99,6 +104,7 @@ export default function InvoiceModal({ companies, customers, products }: any) {
       // Toujours charger les splits pour ce produit, même si déjà sélectionné ailleurs
       setTimeout(async () => {
         const splits = await loadSplitsForProduct(productId);
+        console.log('🔄 Splits chargés pour produit', productId, ':', splits);
         updateLine(index, 'splits', splits);
       }, 0);
     }
@@ -112,34 +118,9 @@ export default function InvoiceModal({ companies, customers, products }: any) {
   // (le bloc await fetch a été déplacé dans handleSubmit)
   // Génération automatique du numéro de facture
   useEffect(() => {
-    const generateInvoiceNumber = async () => {
-      if (!companies || companies.length === 0) return;
-      // On prend la première société trouvée dans la répartition (ou adapte selon ton besoin)
-      const companyId = Object.keys(lines.reduce((acc, line) => {
-        (line.splits || []).forEach((split: any) => {
-          if (split.amount > 0) acc[split.company_id] = true;
-        });
-        return acc;
-      }, {} as Record<string, boolean>))[0] || companies[0].id;
-      // Cherche le dernier numéro pour cette société
-      const { data: lastInvoice, error } = await supabase
-        .from('invoices')
-        .select('invoice_number')
-        .eq('company_id', companyId)
-        .order('date', { ascending: false });
-      if (error) {
-        console.error('Supabase error (generateInvoiceNumber):', error);
-      }
-      const firstInvoice = Array.isArray(lastInvoice) ? lastInvoice[0] : lastInvoice;
-      let nextNum = 1;
-      if (firstInvoice?.invoice_number) {
-        const match = firstInvoice.invoice_number.match(/(\d+)$/);
-        if (match) nextNum = parseInt(match[1], 10) + 1;
-      }
-      const year = new Date().getFullYear();
-      setInvoiceNumber(`F${year}-${String(nextNum).padStart(3, '0')}`);
-    };
-    generateInvoiceNumber();
+    // Le numéro de facture sera généré automatiquement par l'API PostgreSQL
+    // pour garantir l'unicité même en cas de concurrence
+    setInvoiceNumber('Auto');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lines]);
 
@@ -153,9 +134,24 @@ export default function InvoiceModal({ companies, customers, products }: any) {
     try {
       // Regrouper les lignes par société selon la répartition (splits)
       const companyMap: Record<string, { total: number, lines: any[] }> = {};
+      
+      console.log('📊 Lignes de facture à traiter:', lines);
+      
       lines.forEach(line => {
+        console.log('📦 Traitement ligne:', { 
+          product_id: line.product_id, 
+          product_name: line.product_name,
+          splits: line.splits 
+        });
+        
         (line.splits || []).forEach((split: any) => {
-          if (!split.amount || split.amount <= 0) return;
+          console.log('💰 Split détecté:', split);
+          
+          if (!split.amount || split.amount <= 0) {
+            console.log('⚠️ Split ignoré (montant = 0):', split);
+            return;
+          }
+          
           if (!companyMap[split.company_id]) companyMap[split.company_id] = { total: 0, lines: [] };
           companyMap[split.company_id].lines.push({
             product_id: line.product_id,
@@ -167,59 +163,49 @@ export default function InvoiceModal({ companies, customers, products }: any) {
           companyMap[split.company_id].total += split.amount * line.quantity;
         });
       });
+      
+      console.log('🏢 Répartition par société:', companyMap);
+      console.log('🏢 Nombre de sociétés concernées:', Object.keys(companyMap).length);
+      
       // Créer une facture par société et collecter les infos pour l’API
       const invoicesToSend: any[] = [];
       for (const [company_id, { total, lines: companyLines }] of Object.entries(companyMap)) {
-        // Génère le numéro de facture pour chaque société
-        const { data: lastInvoice, error: invoiceError } = await supabase
-          .from('invoices')
-          .select('invoice_number')
-          .eq('company_id', company_id)
-          .order('date', { ascending: false });
-        if (invoiceError) {
-          console.error('Supabase error (handleSubmit):', invoiceError);
-        }
-        const firstInvoice = Array.isArray(lastInvoice) ? lastInvoice[0] : lastInvoice;
-        let nextNum = 1;
-        if (firstInvoice?.invoice_number) {
-          const match = firstInvoice.invoice_number.match(/(\d+)$/);
-          if (match) nextNum = parseInt(match[1], 10) + 1;
-        }
-        const year = new Date().getFullYear();
-        const autoInvoiceNumber = `F${year}-${String(nextNum).padStart(3, '0')}`;
-        const { data: invoice, error: insertError } = await supabase
-          .from('invoices')
-          .insert([{
+        // Le numéro sera généré automatiquement par l'API via PostgreSQL
+        // pour garantir l'unicité même en cas de concurrence
+        
+        // UTILISER L'API POUR CRÉER LA FACTURE (BYPASS RLS + Numéro auto)
+        const createRes = await fetch('/api/create-invoice-single', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             company_id,
             customer_id: customerId,
-            invoice_number: autoInvoiceNumber,
+            // invoice_number sera généré automatiquement par l'API
             date: invoiceDate,
             total,
-            paid: 0
-          }])
-          .select()
-          .single();
-        if (insertError) throw insertError;
-        // Créer les lignes de facture pour cette société
-        // Séparer les données pour l'insert DB et pour le PDF
-        const invoiceLinesDb = companyLines.map(line => ({
-          invoice_id: invoice.id,
-          product_id: line.product_id,
-          quantity: line.quantity,
-          price: line.unit_price ?? 0
-        }));
-        const { error: linesError } = await supabase
-          .from('invoice_lines')
-          .insert(invoiceLinesDb);
-        if (linesError) throw linesError;
-
+            lines: companyLines
+          })
+        });
+        
+        const createData = await createRes.json();
+        if (!createData.ok) throw new Error(createData.error);
+        const invoice = createData.invoice;
+        
         // Récupérer les infos société et client pour l'email
         const company = companies.find((c: any) => c.id === company_id);
         const customer = customers.find((c: any) => c.id === customerId);
         invoicesToSend.push({ company, customer, invoice, lines: companyLines });
       }
+      
+      console.log('📧 Factures à envoyer:', invoicesToSend);
+      console.log('📧 Nombre de factures:', invoicesToSend.length);
+      
       // Envoi groupé au client (un seul mail, toutes les factures)
       const customer = customers.find((c: any) => c.id === customerId);
+      
+      console.log('📨 Envoi email à:', customer?.email);
+      console.log('📨 Nombre de PDFs joints:', invoicesToSend.length);
+      
       await fetch('/api/send-invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -393,31 +379,29 @@ export default function InvoiceModal({ companies, customers, products }: any) {
                               className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                             />
                           </div>
-                          {/* Répartition multi-sociétés */}
-                          {companies.length > 1 && (
-                            <div className="col-span-full">
-                              <label className="block text-xs font-medium text-gray-600 mb-1">Répartition par société (€)</label>
-                              <div className="flex gap-2">
-                                {companies.map((c: any, splitIdx: number) => (
-                                  <div key={c.id} className="flex flex-col items-center">
-                                    <span className="text-xs text-gray-500">{c.name}</span>
-                                    <input
-                                      type="number"
-                                      step="0.01"
-                                      min="0"
-                                      value={line.splits?.find((s: any) => s.company_id === c.id)?.amount ?? 0}
-                                      onChange={e => {
-                                        const splits = (line.splits || companies.map((cc: any) => ({ company_id: cc.id, amount: 0 })));
-                                        const newSplits = splits.map((s: any) => s.company_id === c.id ? { ...s, amount: parseFloat(e.target.value) } : s);
-                                        updateLine(index, 'splits', newSplits);
-                                      }}
-                                      className="w-20 px-2 py-1 border border-gray-300 rounded-lg text-xs"
-                                    />
-                                  </div>
-                                ))}
-                              </div>
+                          {/* Répartition multi-sociétés - toujours afficher pour voir les splits */}
+                          <div className="col-span-full">
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Répartition par société (€)</label>
+                            <div className="flex gap-2">
+                              {companies.map((c: any, splitIdx: number) => (
+                                <div key={c.id} className="flex flex-col items-center">
+                                  <span className="text-xs text-gray-500">{c.name}</span>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={line.splits?.find((s: any) => s.company_id === c.id)?.amount ?? 0}
+                                    onChange={e => {
+                                      const splits = (line.splits || companies.map((cc: any) => ({ company_id: cc.id, amount: 0 })));
+                                      const newSplits = splits.map((s: any) => s.company_id === c.id ? { ...s, amount: parseFloat(e.target.value) } : s);
+                                      updateLine(index, 'splits', newSplits);
+                                    }}
+                                    className="w-20 px-2 py-1 border border-gray-300 rounded-lg text-xs"
+                                  />
+                                </div>
+                              ))}
                             </div>
-                          )}
+                          </div>
                           <div>
                             <label className="block text-xs font-medium text-gray-600 mb-1">
                               Total (€)

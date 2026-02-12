@@ -40,6 +40,32 @@ export default function StockInterface({ rawMaterials: initialRawMaterials, prod
   const [editingType, setEditingType] = useState<'material' | 'product' | null>(null)
   const [threshold, setThreshold] = useState(0)
   const [message, setMessage] = useState<string | null>(null)
+  const [editingStock, setEditingStock] = useState<{ id: string; type: 'material' | 'product'; value: number } | null>(null)
+
+  const updateStock = async (id: string, type: 'material' | 'product', newStock: number) => {
+    try {
+      const table = type === 'material' ? 'raw_materials' : 'products'
+      const { error } = await supabase
+        .from(table)
+        .update({ stock: newStock })
+        .eq('id', id)
+
+      if (error) throw error
+
+      // Mettre à jour l'état local
+      if (type === 'material') {
+        setRawMaterials(prev => prev.map(m => m.id === id ? { ...m, stock: newStock } : m))
+      } else {
+        setProducts(prev => prev.map(p => p.id === id ? { ...p, stock: newStock } : p))
+      }
+
+      setMessage('Stock mis à jour')
+      setEditingStock(null)
+      setTimeout(() => setMessage(null), 3000)
+    } catch (e: any) {
+      setMessage('Erreur : ' + e.message)
+    }
+  }
 
   const updateThreshold = async (id: string, type: 'material' | 'product', newThreshold: number) => {
     try {
@@ -125,11 +151,49 @@ export default function StockInterface({ rawMaterials: initialRawMaterials, prod
               {rawMaterials.map((material) => {
                 const status = getStockStatus(material.stock, material.alert_threshold)
                 const isEditing = editingId === material.id && editingType === 'material'
+                const isEditingStock = editingStock?.id === material.id && editingStock?.type === 'material'
                 
                 return (
                   <tr key={material.id}>
                     <td className="px-4 py-3 text-sm font-medium">{material.name}</td>
-                    <td className="px-4 py-3 text-sm">{material.stock} {material.unit}</td>
+                    <td className="px-4 py-3 text-sm">
+                      {isEditingStock ? (
+                        <div className="flex gap-2 items-center">
+                          <input
+                            type="number"
+                            value={editingStock.value}
+                            onChange={(e) => setEditingStock({ ...editingStock, value: Number(e.target.value) })}
+                            className="w-24 px-2 py-1 border rounded"
+                            min="0"
+                            step="1"
+                          />
+                          <span className="text-gray-500">{material.unit}</span>
+                          <button
+                            onClick={() => updateStock(material.id, 'material', editingStock.value)}
+                            className="text-green-600 hover:text-green-800 font-bold"
+                          >
+                            ✓
+                          </button>
+                          <button
+                            onClick={() => setEditingStock(null)}
+                            className="text-red-600 hover:text-red-800 font-bold"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2 items-center">
+                          <span>{material.stock} {material.unit}</span>
+                          <button
+                            onClick={() => setEditingStock({ id: material.id, type: 'material', value: material.stock })}
+                            className="text-blue-600 hover:text-blue-800 text-xs"
+                            title="Modifier le stock"
+                          >
+                            ✏️
+                          </button>
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-sm">
                       {isEditing ? (
                         <div className="flex gap-2">
@@ -209,11 +273,48 @@ export default function StockInterface({ rawMaterials: initialRawMaterials, prod
               {products.map((product) => {
                 const status = getStockStatus(product.stock, product.alert_threshold)
                 const isEditing = editingId === product.id && editingType === 'product'
+                const isEditingStock = editingStock?.id === product.id && editingStock?.type === 'product'
                 
                 return (
                   <tr key={product.id}>
                     <td className="px-4 py-3 text-sm font-medium">{product.name}</td>
-                    <td className="px-4 py-3 text-sm">{product.stock}</td>
+                    <td className="px-4 py-3 text-sm">
+                      {isEditingStock ? (
+                        <div className="flex gap-2 items-center">
+                          <input
+                            type="number"
+                            value={editingStock.value}
+                            onChange={(e) => setEditingStock({ ...editingStock, value: Number(e.target.value) })}
+                            className="w-24 px-2 py-1 border rounded"
+                            min="0"
+                            step="1"
+                          />
+                          <button
+                            onClick={() => updateStock(product.id, 'product', editingStock.value)}
+                            className="text-green-600 hover:text-green-800 font-bold"
+                          >
+                            ✓
+                          </button>
+                          <button
+                            onClick={() => setEditingStock(null)}
+                            className="text-red-600 hover:text-red-800 font-bold"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2 items-center">
+                          <span>{product.stock}</span>
+                          <button
+                            onClick={() => setEditingStock({ id: product.id, type: 'product', value: product.stock })}
+                            className="text-blue-600 hover:text-blue-800 text-xs"
+                            title="Modifier le stock"
+                          >
+                            ✏️
+                          </button>
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-sm">
                       {isEditing ? (
                         <div className="flex gap-2">

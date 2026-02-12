@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import InvoicesList from '@/components/invoices/InvoicesList'
 import InvoiceModal from '@/components/invoices/InvoiceModal'
-import CompanyFilter from '@/components/dashboard/CompanyFilter'
+import ExportButton from '@/components/invoices/ExportButton'
 
 export default async function InvoicesPage() {
   const supabase = await createClient()
@@ -12,34 +12,66 @@ export default async function InvoicesPage() {
     redirect('/login')
   }
   const isAdmin = user?.email === 'fabien.hicauber@gmail.com'
-  const client = isAdmin ? await createServiceRoleClient() : supabase
+  
+  // Utiliser serviceRoleClient pour tous pour bypass RLS
+  const client = await createServiceRoleClient()
 
-  const { data: companies } = await client.from('companies').select('id, name, code').order('name')
-  if (!isAdmin && (!companies || companies.length === 0)) {
-    return <div className="p-8 text-red-600">Aucune société associée à votre compte.</div>
+  // IMPORTANT: Charger TOUTES les sociétés pour permettre l'édition des splits
+  const { data: allCompanies } = await client.from('companies').select('id, name, code').order('name')
+  
+  // Pour les utilisateurs non-admin, charger leurs sociétés autorisées
+  let companies = allCompanies || []
+  let userCompanies = allCompanies || []
+  
+  if (!isAdmin) {
+    const { data: userCompRel } = await client
+      .from('user_companies')
+      .select('company_id')
+      .eq('user_id', user.id)
+    
+    if (userCompRel && userCompRel.length > 0) {
+      const userCompanyIds = userCompRel.map(r => r.company_id)
+      userCompanies = (allCompanies || []).filter(c => userCompanyIds.includes(c.id))
+    }
+    
+    if (userCompanies.length === 0) {
+      return <div className="p-8 text-red-600">Aucune société associée à votre compte.</div>
+    }
   }
 
   const cookieCompany = (await cookies()).get('activeCompanyId')?.value || null
   let companyId: string | null = null
-  if (cookieCompany && cookieCompany !== 'all' && companies) {
-    const found = companies.find(c => c.id === cookieCompany)
-    companyId = found ? found.id : null
-  } else if (cookieCompany === 'all') {
-    companyId = null
+  
+  // Déterminer la société active pour filtrer les données
+  if (isAdmin) {
+    // Admin voit tout par défaut, sauf s'il a sélectionné une société spécifique
+    if (cookieCompany && cookieCompany !== 'all' && companies) {
+      const found = companies.find(c => c.id === cookieCompany)
+      companyId = found ? found.id : null
+    }
   } else {
-    if (companies && companies.length === 1) companyId = companies[0].id
-    else companyId = null
+    // Utilisateur normal : utiliser sa première société autorisée
+    if (userCompanies && userCompanies.length > 0) {
+      companyId = userCompanies[0].id
+    }
   }
-  // Admin: par défaut voit tout, mais s'il a sélectionné une société via le cookie, on respecte ce filtre
 
-  let customersQuery = client.from('customers').select('*').order('name')
-  let productsQuery = client.from('products').select('*').order('name')
-  if (companyId) {
-    customersQuery = customersQuery.eq('company_id', companyId)
-    productsQuery = productsQuery.eq('company_id', companyId)
-  }
-  const { data: customers } = await customersQuery
-  const { data: products } = await productsQuery
+  // IMPORTANT: On charge TOUS les clients et produits (même si société active)
+  // pour permettre la création de factures multi-sociétés et voir les splits
+  const { data: customers } = await client.from('customers').select('*').order('name')
+  const { data: products } = await client.from('products').select('*').order('name')
+  
+  // Charger les splits pour tous les produits
+  const { data: allSplits } = await client.from('product_company_splits').select('*')
+  
+  // Enrichir les produits avec leurs splits
+  const productsWithSplits = (products || []).map((p: any) => {
+    const splits = (companies || []).map((c: any) => {
+      const found = allSplits?.find((s: any) => s.product_id === p.id && s.company_id === c.id);
+      return { company_id: c.id, amount: found ? Number(found.amount) : 0 };
+    });
+    return { ...p, splits };
+  });
 
   let invoicesQuery = client
     .from('invoices')
@@ -62,15 +94,22 @@ export default async function InvoicesPage() {
       invoice_lines(*, product:products(name))
     `)
     .order('date', { ascending: false })
-  if (companyId) invoicesQuery = invoicesQuery.eq('company_id', companyId)
+  
+  // IMPORTANT: Filtrer par société pour que chaque utilisateur ne voie que SES factures
+  if (companyId) {
+    invoicesQuery = invoicesQuery.eq('company_id', companyId)
+  }
+  
   const { data: invoices } = await invoicesQuery
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">📄 Factures</h1>
-        <CompanyFilter companies={companies || []} canSeeAllOverride={isAdmin || (companies ? companies.length > 1 : false)} />
-        <InvoiceModal companies={companies || []} customers={customers || []} products={products || []} />
+        <div className="flex items-center gap-4">
+          <ExportButton invoices={invoices || []} />
+          <InvoiceModal companies={allCompanies || []} customers={customers || []} products={productsWithSplits || []} />
+        </div>
       </div>
 
       <InvoicesList 

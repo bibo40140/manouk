@@ -5,14 +5,15 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { PlusIcon, XMarkIcon } from '@heroicons/react/24/outline'
 
-export default function PurchaseModal({ companies, suppliers, rawMaterials }: any) {
+export default function PurchaseModal({ companies, suppliers, rawMaterials, activeCompanyId }: any) {
   const router = useRouter()
   const supabase = createClient()
   
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   
-  const [companyId, setCompanyId] = useState('')
+  // Auto-sélectionner la société active si disponible
+  const [companyId, setCompanyId] = useState(activeCompanyId || '')
   const [rawMaterialId, setRawMaterialId] = useState('')
   const [quantity, setQuantity] = useState('')
   const [unitCost, setUnitCost] = useState('')
@@ -90,22 +91,24 @@ export default function PurchaseModal({ companies, suppliers, rawMaterials }: an
 
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Société *
-                  </label>
-                  <select
-                    value={companyId}
-                    onChange={(e) => setCompanyId(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  >
-                    <option value="">Sélectionner...</option>
-                    {companies.map((company: any) => (
-                      <option key={company.id} value={company.id}>{company.name}</option>
-                    ))}
-                  </select>
-                </div>
+                {!activeCompanyId && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Société *
+                    </label>
+                    <select
+                      value={companyId}
+                      onChange={(e) => setCompanyId(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    >
+                      <option value="">Sélectionner...</option>
+                      {companies.map((company: any) => (
+                        <option key={company.id} value={company.id}>{company.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
 
 

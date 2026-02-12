@@ -3,7 +3,6 @@ import { createClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import PurchasesList from '@/components/purchases/PurchasesList'
 import PurchaseModal from '@/components/purchases/PurchaseModal'
-import CompanyFilter from '@/components/dashboard/CompanyFilter'
 import { cookies } from 'next/headers'
 
 
@@ -14,24 +13,48 @@ export default async function PurchasesPage() {
     redirect('/login')
   }
   const isAdmin = user?.email === 'fabien.hicauber@gmail.com'
-  const client = isAdmin ? await createServiceRoleClient() : supabase
-  // Sociétés autorisées (RLS)
-  const { data: companies } = await client.from('companies').select('id, name, code').order('name')
-  if (!isAdmin && (!companies || companies.length === 0)) {
-    return <div className="p-8 text-red-600">Aucune société associée à votre compte.</div>
+  
+  // Utiliser serviceRoleClient pour tous pour bypass RLS
+  const client = await createServiceRoleClient()
+  
+  // IMPORTANT: Charger TOUTES les sociétés pour permettre l'édition des splits
+  const { data: allCompanies } = await client.from('companies').select('id, name, code').order('name')
+  
+  // Pour les utilisateurs non-admin, charger leurs sociétés autorisées
+  let companies = allCompanies || []
+  let userCompanies = allCompanies || []
+  
+  if (!isAdmin) {
+    const { data: userCompRel } = await client
+      .from('user_companies')
+      .select('company_id')
+      .eq('user_id', user.id)
+    
+    if (userCompRel && userCompRel.length > 0) {
+      const userCompanyIds = userCompRel.map(r => r.company_id)
+      userCompanies = (allCompanies || []).filter(c => userCompanyIds.includes(c.id))
+    }
+    
+    if (userCompanies.length === 0) {
+      return <div className="p-8 text-red-600">Aucune société associée à votre compte.</div>
+    }
   }
   const cookieCompany = (await cookies()).get('activeCompanyId')?.value || null
   let companyId: string | null = null
-  if (cookieCompany && cookieCompany !== 'all' && companies) {
-    const found = companies.find(c => c.id === cookieCompany)
-    companyId = found ? found.id : null
-  } else if (cookieCompany === 'all') {
-    companyId = null
+  
+  // Déterminer la société active pour filtrer les données
+  if (isAdmin) {
+    // Admin voit tout par défaut, sauf s'il a sélectionné une société spécifique
+    if (cookieCompany && cookieCompany !== 'all' && companies) {
+      const found = companies.find(c => c.id === cookieCompany)
+      companyId = found ? found.id : null
+    }
   } else {
-    if (companies && companies.length === 1) companyId = companies[0].id
-    else companyId = null
+    // Utilisateur normal : utiliser sa première société autorisée
+    if (userCompanies && userCompanies.length > 0) {
+      companyId = userCompanies[0].id
+    }
   }
-  // Admin: par défaut voit tout, mais s'il a sélectionné une société via le cookie, on respecte ce filtre
 
   let suppliersQuery = client.from('suppliers').select('*').order('name')
   let rawMaterialsQuery = client.from('raw_materials').select('*').order('name')
@@ -50,24 +73,29 @@ export default async function PurchasesPage() {
       company:companies(id, name, code)
     `)
     .order('purchase_date', { ascending: false })
-  if (companyId) purchasesQuery = purchasesQuery.eq('company_id', companyId)
+  
+  // IMPORTANT: Filtrer par société pour que chaque utilisateur ne voie que SES achats
+  if (companyId) {
+    purchasesQuery = purchasesQuery.eq('company_id', companyId)
+  }
+  
   const { data: purchases } = await purchasesQuery
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">🛒 Achats</h1>
-        <CompanyFilter companies={companies || []} canSeeAllOverride={isAdmin || (companies ? companies.length > 1 : false)} />
         <PurchaseModal 
-          companies={companies || []} 
+          companies={allCompanies || []} 
           suppliers={suppliers || []} 
-          rawMaterials={rawMaterials || []} 
+          rawMaterials={rawMaterials || []}
+          activeCompanyId={companyId}
         />
       </div>
 
       <PurchasesList 
         purchases={purchases || []}
-        companies={companies || []}
+        companies={allCompanies || []}
         suppliers={suppliers || []}
         rawMaterials={rawMaterials || []}
       />

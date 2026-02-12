@@ -88,7 +88,7 @@ export default function CompaniesTab({ companies }: any) {
     setCode(company.code)
     setName(company.name)
     setEmail(company.email || '')
-    setLogo(company.logo || '')
+    setLogo(company.logo_url || company.logo || '')
     setAddress(company.address || '')
     setPhone(company.phone || '')
     setSiret(company.siret || '')
@@ -269,7 +269,7 @@ export default function CompaniesTab({ companies }: any) {
                                     website: inlineData.website || null,
                                     address: inlineData.address || null,
                                     legal_notice: inlineData.legal_notice || null,
-                                    logo: logoUrl || company.logo || null
+                                    logo_url: logoUrl || company.logo_url || company.logo || null
                                   };
                                   console.log('🔄 Mise à jour société:', updateData);
                                   const { data, error, count } = await supabase
@@ -333,7 +333,7 @@ export default function CompaniesTab({ companies }: any) {
                                 website: company.website || '',
                                 address: company.address || '',
                                 legal_notice: company.legal_notice || '',
-                                logo: company.logo || ''
+                                logo: company.logo_url || company.logo || ''
                               })
                             }}
                             className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"

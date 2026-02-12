@@ -168,28 +168,32 @@ export default function InvoicesList({ invoices: initialInvoices, companies, cus
                                       defaultBody={`Bonjour,\n\nVeuillez trouver votre facture en pièce jointe.\n\nCordialement.`}
                                       onClose={() => setResendModal(null)}
                                       onSend={async (body) => {
-                                        // Appel API pour renvoyer la facture avec le corps personnalisé
-                                        const res = await fetch('/api/send-invoices', {
+                                        // Récupérer toutes les données nécessaires pour la facture
+                                        const invoice = resendModal.invoice;
+                                        
+                                        // Appel API pour renvoyer la facture avec génération du PDF
+                                        const res = await fetch('/api/send-invoice', {
                                           method: 'POST',
                                           headers: { 'Content-Type': 'application/json' },
                                           body: JSON.stringify({
-                                            smtpConfig: window.SMTP_CONFIG || {},
                                             invoices: [{
-                                              id: resendModal.invoice.id,
-                                              to: resendModal.invoice.customer?.email,
-                                              subject: `Votre facture ${resendModal.invoice.invoice_number}`,
-                                              text: body,
-                                              html: body.replace(/\n/g, '<br>'),
-                                              attachments: [] // L'API doit générer et attacher le PDF
-                                            }]
+                                              company: invoice.company,
+                                              customer: invoice.customer,
+                                              invoice: invoice,
+                                              lines: invoice.invoice_lines || []
+                                            }],
+                                            to: invoice.customer?.email,
+                                            subject: `Votre facture ${invoice.invoice_number}`,
+                                            text: body
                                           })
                                         });
                                         if (res.ok) {
                                           alert('Facture envoyée !');
-                                          setInvoices((prev: any[]) => prev.map(inv => inv.id === resendModal.invoice.id ? { ...inv, email_sent: true, email_sent_date: new Date().toISOString() } : inv));
+                                          setInvoices((prev: any[]) => prev.map(inv => inv.id === resendModal.invoice.id ? { ...inv, email_sent: true, email_sent_date: new Date().toISOString().slice(0,10) } : inv));
                                           setResendModal(null);
                                         } else {
-                                          alert('Erreur lors de l\'envoi');
+                                          const error = await res.json();
+                                          alert('Erreur lors de l\'envoi: ' + (error.error || 'Erreur inconnue'));
                                         }
                                       }}
                                     />
