@@ -106,7 +106,8 @@ export default function RawMaterialsTab({ rawMaterials, companies }: any) {
             </label>
             <input
               type="number"
-              step="0.01"
+              step="0.0001"
+              min="0"
               value={unitCost}
               onChange={(e) => setUnitCost(e.target.value)}
               placeholder="5.00"
@@ -202,7 +203,8 @@ export default function RawMaterialsTab({ rawMaterials, companies }: any) {
                         <td className="px-4 py-3">
                           <input
                             type="number"
-                            step="0.01"
+                            step="0.0001"
+                            min="0"
                             value={inlineData.unit_cost || ''}
                             onChange={(e) => setInlineData({...inlineData, unit_cost: e.target.value})}
                             className="w-full px-2 py-1 border border-indigo-300 rounded focus:ring-2 focus:ring-indigo-500 text-right"
