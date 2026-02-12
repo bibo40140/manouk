@@ -264,7 +264,9 @@ export default function RawMaterialsTab({ rawMaterials, companies }: any) {
                       <td className="px-4 py-3 text-sm text-gray-700">
                         {companies.find((c: any) => c.id === material.company_id)?.name || 'Non assignée'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-900">{material.unit_cost.toFixed(2)} €</td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-900">
+                        {material.unit_cost < 0.01 ? material.unit_cost.toFixed(4) : material.unit_cost.toFixed(2)} €
+                      </td>
                       <td className="px-4 py-3 text-sm text-right text-gray-700">{material.stock}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex justify-end gap-3">
