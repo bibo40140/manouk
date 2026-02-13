@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import ProductionModal from './ProductionModal'
 
 type RawMaterial = {
   id: string
@@ -42,7 +41,6 @@ export default function StockInterface({ rawMaterials: initialRawMaterials, prod
   const [threshold, setThreshold] = useState(0)
   const [message, setMessage] = useState<string | null>(null)
   const [editingStock, setEditingStock] = useState<{ id: string; type: 'material' | 'product'; value: number } | null>(null)
-  const [showProductionModal, setShowProductionModal] = useState(false)
 
   const updateStock = async (id: string, type: 'material' | 'product', newStock: number) => {
     try {
@@ -134,17 +132,6 @@ export default function StockInterface({ rawMaterials: initialRawMaterials, prod
           {message}
         </div>
       )}
-
-      {/* Bouton Nouvelle Production */}
-      <div className="flex justify-end">
-        <button
-          onClick={() => setShowProductionModal(true)}
-          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 flex items-center gap-2"
-        >
-          <span>🏭</span>
-          <span>Nouvelle Production</span>
-        </button>
-      </div>
 
       {/* Matières premières */}
       <div>
@@ -388,18 +375,6 @@ export default function StockInterface({ rawMaterials: initialRawMaterials, prod
           </table>
         </div>
       </div>
-
-      {/* Modal de production */}
-      {showProductionModal && (
-        <ProductionModal
-          products={products}
-          onClose={() => setShowProductionModal(false)}
-          onSuccess={() => {
-            // Recharger la page pour voir les nouveaux stocks
-            window.location.reload()
-          }}
-        />
-      )}
     </div>
   )
 }

@@ -109,6 +109,18 @@ export async function POST(req: Request) {
 
     console.log(`✅ Production enregistrée:`, production);
 
+    // 7️⃣ Déclencher la vérification des alertes de stock
+    try {
+      // Appeler directement l'API process-alerts en interne
+      const processAlertsModule = await import('@/app/api/stock/process-alerts/route');
+      const alertsResult = await processAlertsModule.POST(new Request('http://localhost:3000/api/stock/process-alerts', { method: 'POST' }));
+      const alertsData = await alertsResult.json();
+      console.log(`📧 Alertes traitées:`, alertsData);
+    } catch (alertError) {
+      console.error('⚠️ Erreur traitement alertes (production continue):', alertError);
+      // Ne pas bloquer la production si l'envoi d'alertes échoue
+    }
+
     return NextResponse.json({ ok: true, production });
   } catch (err: any) {
     console.error('❌ Erreur création production:', err);

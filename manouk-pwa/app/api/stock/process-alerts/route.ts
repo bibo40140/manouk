@@ -4,7 +4,30 @@ import nodemailer from 'nodemailer'
 
 export async function POST(req: Request) {
   try {
-    const supabase = createServiceRoleClient()
+    const supabase = await createServiceRoleClient()
+
+    // Récupérer la config SMTP depuis la table settings (comme pour les factures)
+    const { data: smtpSettings, error: smtpError } = await supabase
+      .from('settings')
+      .select('key, value')
+      .in('key', ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass', 'smtp_from'])
+
+    if (smtpError) {
+      console.error('Erreur chargement config SMTP:', smtpError)
+      return NextResponse.json({ error: 'Configuration SMTP non trouvée' }, { status: 500 })
+    }
+
+    const smtp: any = {}
+    smtpSettings?.forEach((row: any) => {
+      smtp[row.key.replace('smtp_', '')] = row.value
+    })
+
+    if (!smtp.host || !smtp.port || !smtp.user || !smtp.pass) {
+      console.error('Config SMTP incomplète:', smtp)
+      return NextResponse.json({ error: 'Configuration SMTP incomplète' }, { status: 500 })
+    }
+
+    console.log('📧 Config SMTP chargée:', { host: smtp.host, port: smtp.port, user: smtp.user })
 
     // Récupérer toutes les alertes non envoyées
     const { data: alerts, error: alertsError } = await supabase
@@ -24,14 +47,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'Aucune alerte en attente', sent: 0 })
     }
 
-    // Créer le transporteur email
+    console.log(`🔔 ${alerts.length} alertes à envoyer`)
+
+    // Créer le transporteur email avec la config depuis la DB
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT),
-      secure: process.env.SMTP_SECURE === 'true',
+      host: smtp.host,
+      port: Number(smtp.port),
+      secure: false,
       auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        user: smtp.user,
+        pass: smtp.pass,
       },
     })
 
@@ -92,11 +117,13 @@ export async function POST(req: Request) {
 
       try {
         await transporter.sendMail({
-          from: `"Manouk - Alerte Stock" <${process.env.SMTP_USER}>`,
+          from: smtp.from ? `"${smtp.from}" <${smtp.user}>` : `"Manouk - Alerte Stock" <${smtp.user}>`,
           to: company.email,
           subject,
           html,
         })
+
+        console.log(`✅ Email envoyé à ${company.email} pour ${alert.item_name}`)
 
         // Marquer l'alerte comme envoyée
         await supabase
@@ -106,7 +133,7 @@ export async function POST(req: Request) {
 
         sentCount++
       } catch (emailError) {
-        console.error('Erreur envoi email pour alerte', alert.id, emailError)
+        console.error('❌ Erreur envoi email pour alerte', alert.id, ':', emailError)
       }
     }
 

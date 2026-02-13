@@ -16,6 +16,11 @@ CREATE INDEX IF NOT EXISTS idx_productions_date ON productions(production_date);
 -- RLS policies
 ALTER TABLE productions ENABLE ROW LEVEL SECURITY;
 
+-- Supprimer les anciennes policies si elles existent
+DROP POLICY IF EXISTS "Allow read for authenticated users" ON productions;
+DROP POLICY IF EXISTS "Allow insert for authenticated users" ON productions;
+DROP POLICY IF EXISTS "Allow delete for authenticated users" ON productions;
+
 -- Lecture : tous les utilisateurs authentifiés
 CREATE POLICY "Allow read for authenticated users"
   ON productions FOR SELECT

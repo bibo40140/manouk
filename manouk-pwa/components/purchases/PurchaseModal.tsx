@@ -39,6 +39,14 @@ export default function PurchaseModal({ companies, suppliers, rawMaterials, acti
 
       if (error) throw error
 
+      // Déclencher la vérification des alertes de stock après l'achat
+      try {
+        await fetch('/api/stock/process-alerts', { method: 'POST' })
+      } catch (alertError) {
+        console.error('Erreur envoi alertes:', alertError)
+        // Ne pas bloquer l'achat si l'envoi d'alertes échoue
+      }
+
       // Réinitialiser le formulaire
       setCompanyId('')
       setRawMaterialId('')
