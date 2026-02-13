@@ -6,33 +6,36 @@
 -- 1. Supprimer toutes les alertes de stock
 DELETE FROM stock_alerts;
 
--- 2. Supprimer toutes les lignes de facture (en premier à cause des clés étrangères)
+-- 2. Supprimer toutes les productions
+DELETE FROM productions;
+
+-- 3. Supprimer toutes les lignes de facture (en premier à cause des clés étrangères)
 DELETE FROM invoice_lines;
 
--- 3. Supprimer tous les paiements
+-- 4. Supprimer tous les paiements
 DELETE FROM payments;
 
--- 4. Supprimer toutes les déclarations URSSAF
+-- 5. Supprimer toutes les déclarations URSSAF
 DELETE FROM urssaf_declarations;
 
--- 5. Supprimer toutes les factures
+-- 6. Supprimer toutes les factures
 DELETE FROM invoices;
 
--- 6. Supprimer tous les achats
+-- 7. Supprimer tous les achats
 DELETE FROM purchases;
 
--- 7. Supprimer les coûts fixes (si tu veux les recréer)
+-- 8. Supprimer les coûts fixes (si tu veux les recréer)
 DELETE FROM fixed_costs;
 
--- 8. Remettre à zéro les stocks des matières premières
+-- 9. Remettre à zéro les stocks des matières premières
 UPDATE raw_materials SET stock = 0;
 
--- 9. Remettre à zéro les stocks des produits
+-- 10. Remettre à zéro les stocks des produits
 UPDATE products SET stock = 0;
 
--- 10. Remettre à zéro les alertes de stock (seuils)
-UPDATE raw_materials SET alert_threshold = NULL;
-UPDATE products SET alert_threshold = NULL;
+-- 11. Remettre à zéro les alertes de stock (seuils) - optionnel
+-- UPDATE raw_materials SET alert_threshold = NULL;
+-- UPDATE products SET alert_threshold = NULL;
 
 -- Vérification des suppressions
 SELECT 'Factures restantes:' as check_type, COUNT(*) as count FROM invoices
@@ -42,6 +45,8 @@ UNION ALL
 SELECT 'Paiements restants:', COUNT(*) FROM payments
 UNION ALL
 SELECT 'Achats restants:', COUNT(*) FROM purchases
+UNION ALL
+SELECT 'Productions restantes:', COUNT(*) FROM productions
 UNION ALL
 SELECT 'Alertes stock restantes:', COUNT(*) FROM stock_alerts
 UNION ALL

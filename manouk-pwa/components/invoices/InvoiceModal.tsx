@@ -222,22 +222,26 @@ export default function InvoiceModal({ companies, customers, products }: any) {
       console.log('📧 Factures à envoyer:', invoicesToSend);
       console.log('📧 Nombre de factures:', invoicesToSend.length);
       
-      // Envoi groupé au client (un seul mail, toutes les factures)
-      const customer = customers.find((c: any) => c.id === customerId);
-      
-      console.log('📨 Envoi email à:', customer?.email);
-      console.log('📨 Nombre de PDFs joints:', invoicesToSend.length);
-      
-      await fetch('/api/send-invoice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          invoices: invoicesToSend,
-          to: customer?.email || '',
-          subject: `Vos factures ${customer?.name || ''}`,
-          text: mailBody
-        })
-      });
+      // Envoi groupé au client UNIQUEMENT si on a cliqué sur "Créer et envoyer"
+      if (pendingAction === 'create-send') {
+        const customer = customers.find((c: any) => c.id === customerId);
+        
+        console.log('📨 Envoi email à:', customer?.email);
+        console.log('📨 Nombre de PDFs joints:', invoicesToSend.length);
+        
+        await fetch('/api/send-invoice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            invoices: invoicesToSend,
+            to: customer?.email || '',
+            subject: `Vos factures ${customer?.name || ''}`,
+            text: mailBody
+          })
+        });
+      } else {
+        console.log('⏭️ Création sans envoi d\'email (bouton "Créer la facture")');
+      }
 
       // Vérifier et envoyer les alertes de stock automatiquement
       try {

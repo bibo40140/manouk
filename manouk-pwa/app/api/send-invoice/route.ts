@@ -587,9 +587,26 @@ export async function POST(req: NextRequest) {
 
     // Envoyer l'email avec toutes les factures en PJ
     try {
+      // Collecter tous les emails : client + sociétés concernées
+      const recipientEmails = new Set<string>();
+      
+      // Ajouter l'email du client principal
+      if (to) recipientEmails.add(to);
+      
+      // Ajouter les emails des sociétés concernées
+      for (const inv of enrichedInvoices) {
+        if (inv.company?.email) {
+          recipientEmails.add(inv.company.email);
+          console.log('📧 Ajout email société:', inv.company.email, '(', inv.company.name, ')');
+        }
+      }
+      
+      const allRecipients = Array.from(recipientEmails).join(', ');
+      console.log('📧 Envoi à:', allRecipients);
+      
       const info = await transporter.sendMail({
         from: smtp.from ? `${smtp.from} <${smtp.user}>` : smtp.user,
-        to,
+        to: allRecipients,
         subject: subject || 'Vos factures',
         text: text || 'Bonjour,\n\nVeuillez trouver vos factures en pièce jointe.\n\nCordialement.',
         attachments,

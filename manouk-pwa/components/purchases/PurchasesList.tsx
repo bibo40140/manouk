@@ -3,33 +3,17 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import PurchasePaymentModal from './PurchasePaymentModal'
 
 export default function PurchasesList({ purchases, companies, suppliers, rawMaterials }: any) {
   const router = useRouter()
   const supabase = createClient()
   
   const [loading, setLoading] = useState<string | null>(null)
+  const [paymentPurchase, setPaymentPurchase] = useState<any>(null)
 
   const formatEuro = (value: number) => {
     return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(value)
-  }
-
-  const handleTogglePaid = async (purchase: any) => {
-    setLoading(purchase.id)
-    
-    try {
-      const { error } = await supabase
-        .from('purchases')
-        .update({ paid: !purchase.paid })
-        .eq('id', purchase.id)
-
-      if (error) throw error
-      router.refresh()
-    } catch (err: any) {
-      alert('Erreur: ' + err.message)
-    } finally {
-      setLoading(null)
-    }
   }
 
   const handleDelete = async (id: string) => {
@@ -131,29 +115,33 @@ export default function PurchasesList({ purchases, companies, suppliers, rawMate
                         {formatEuro(total)}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={() => handleTogglePaid(purchase)}
-                          disabled={loading === purchase.id}
-                          className="disabled:opacity-50"
-                        >
-                          {purchase.paid ? (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 cursor-pointer hover:bg-green-200">
-                              Payé
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700 cursor-pointer hover:bg-orange-200">
-                              En attente
-                            </span>
-                          )}
-                        </button>
+                        {purchase.paid ? (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                            Payé {purchase.payment_date ? `le ${new Date(purchase.payment_date).toLocaleDateString('fr-FR')}` : ''}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                            En attente
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => handleDelete(purchase.id)}
-                          className="text-red-600 hover:text-red-800 text-sm font-medium"
-                        >
-                          Supprimer
-                        </button>
+                        <div className="flex justify-end gap-2">
+                          {!purchase.paid && (
+                            <button
+                              onClick={() => setPaymentPurchase(purchase)}
+                              className="text-green-600 hover:text-green-800 text-sm font-medium"
+                            >
+                              💰 Marquer comme payé
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDelete(purchase.id)}
+                            className="text-red-600 hover:text-red-800 text-sm font-medium"
+                          >
+                            Supprimer
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -163,6 +151,14 @@ export default function PurchasesList({ purchases, companies, suppliers, rawMate
           </div>
         )}
       </div>
+
+      {/* Modal de paiement */}
+      {paymentPurchase && (
+        <PurchasePaymentModal
+          purchase={paymentPurchase}
+          onClose={() => setPaymentPurchase(null)}
+        />
+      )}
     </div>
   )
 }

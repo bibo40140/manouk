@@ -143,6 +143,35 @@ export default function InvoicesList({ invoices: initialInvoices, companies, cus
                             >
                               ✏️ Modifier
                             </button>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const res = await fetch('/api/download-invoice-pdf', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ invoiceId: invoice.id })
+                                  });
+                                  if (res.ok) {
+                                    const blob = await res.blob();
+                                    const url = window.URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `Facture-${invoice.invoice_number}.pdf`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    window.URL.revokeObjectURL(url);
+                                    document.body.removeChild(a);
+                                  } else {
+                                    alert('Erreur lors du téléchargement du PDF');
+                                  }
+                                } catch (err) {
+                                  alert('Erreur : ' + (err as Error).message);
+                                }
+                              }}
+                              className="text-purple-600 hover:text-purple-800 text-sm font-medium"
+                            >
+                              📄 Voir PDF
+                            </button>
                             {invoice.email_sent ? (
                               <>
                                 <span className="text-gray-500 text-xs">✉️ Facture déjà envoyée{invoice.email_sent_date ? ` le ${new Date(invoice.email_sent_date).toLocaleDateString('fr-FR')}` : ''}</span>
@@ -168,28 +197,43 @@ export default function InvoicesList({ invoices: initialInvoices, companies, cus
                                       defaultBody={`Bonjour,\n\nVeuillez trouver votre facture en pièce jointe.\n\nCordialement.`}
                                       onClose={() => setResendModal(null)}
                                       onSend={async (body) => {
-                                        // Récupérer toutes les données nécessaires pour la facture
+                                        // Récupérer toutes les factures du même client avec le même numéro
                                         const invoice = resendModal.invoice;
+                                        const invoiceNumber = invoice.invoice_number;
+                                        const customerId = invoice.customer_id;
                                         
-                                        // Appel API pour renvoyer la facture avec génération du PDF
+                                        // Récupérer toutes les factures avec ce numéro (Manouk + Bibizi)
+                                        const allInvoicesForClient = invoices.filter((inv: any) => 
+                                          inv.invoice_number === invoiceNumber && 
+                                          inv.customer_id === customerId
+                                        );
+                                        
+                                        console.log('📧 Renvoi de', allInvoicesForClient.length, 'facture(s) pour le numéro', invoiceNumber);
+                                        
+                                        // Appel API pour renvoyer TOUTES les factures avec génération des PDFs
                                         const res = await fetch('/api/send-invoice', {
                                           method: 'POST',
                                           headers: { 'Content-Type': 'application/json' },
                                           body: JSON.stringify({
-                                            invoices: [{
-                                              company: invoice.company,
-                                              customer: invoice.customer,
-                                              invoice: invoice,
-                                              lines: invoice.invoice_lines || []
-                                            }],
+                                            invoices: allInvoicesForClient.map((inv: any) => ({
+                                              company: inv.company,
+                                              customer: inv.customer,
+                                              invoice: inv,
+                                              lines: inv.invoice_lines || []
+                                            })),
                                             to: invoice.customer?.email,
                                             subject: `Votre facture ${invoice.invoice_number}`,
                                             text: body
                                           })
                                         });
                                         if (res.ok) {
-                                          alert('Facture envoyée !');
-                                          setInvoices((prev: any[]) => prev.map(inv => inv.id === resendModal.invoice.id ? { ...inv, email_sent: true, email_sent_date: new Date().toISOString().slice(0,10) } : inv));
+                                          alert('Facture(s) envoyée(s) !');
+                                          // Marquer toutes les factures comme envoyées
+                                          setInvoices((prev: any[]) => prev.map(inv => 
+                                            allInvoicesForClient.some((f: any) => f.id === inv.id)
+                                              ? { ...inv, email_sent: true, email_sent_date: new Date().toISOString().slice(0,10) }
+                                              : inv
+                                          ));
                                           setResendModal(null);
                                         } else {
                                           const error = await res.json();
