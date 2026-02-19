@@ -11,6 +11,7 @@ type InvoiceLine = {
   quantity: number
   unit_price: number
   total: number
+  delivery_id?: string
   splits?: { company_id: string, amount: number }[]
 }
 
@@ -26,11 +27,15 @@ export default function InvoiceModal({ companies, customers, products }: any) {
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
   const [lines, setLines] = useState<InvoiceLine[]>([]);
   const [mailBody, setMailBody] = useState('Bonjour,\n\nVeuillez trouver vos factures en pièce jointe.\n\nCordialement.');
+  const [deliveries, setDeliveries] = useState<any[]>([]);
+  const [selectedDeliveryIds, setSelectedDeliveryIds] = useState<string[]>([]);
+  const [loadingDeliveries, setLoadingDeliveries] = useState(false);
 
   const [pendingAction, setPendingAction] = useState<'create' | 'create-send' | null>(null);
   // ...le reste du code inchangé...
 
   const addLine = () => {
+    if (selectedDeliveryIds.length > 0) return;
     // Ajoute une ligne avec une répartition initiale égale entre sociétés
     const defaultSplits = companies.map((c: any) => ({ company_id: c.id, amount: 0 }));
     setLines([
@@ -97,6 +102,87 @@ export default function InvoiceModal({ companies, customers, products }: any) {
     });
   }
 
+  useEffect(() => {
+    if (!customerId) {
+      setDeliveries([]);
+      setSelectedDeliveryIds([]);
+      return;
+    }
+
+    let active = true;
+    const loadDeliveries = async () => {
+      setLoadingDeliveries(true);
+      const { data, error } = await supabase
+        .from('deliveries')
+        .select(`
+          id,
+          delivery_date,
+          notes,
+          invoiced_at,
+          delivery_productions(
+            production:productions(id, quantity, production_date, product:products(id, name, price))
+          )
+        `)
+        .eq('customer_id', customerId)
+        .is('invoiced_at', null)
+        .order('delivery_date', { ascending: false });
+
+      if (active) {
+        if (error) {
+          console.error('Erreur chargement livraisons:', error);
+          setDeliveries([]);
+        } else {
+          setDeliveries(data || []);
+        }
+        setLoadingDeliveries(false);
+      }
+    };
+
+    loadDeliveries();
+    return () => { active = false; };
+  }, [customerId, supabase]);
+
+  const buildLinesFromDeliveries = (selectedIds: string[]) => {
+    const selected = deliveries.filter((d: any) => selectedIds.includes(d.id));
+    const newLines: InvoiceLine[] = [];
+
+    selected.forEach((delivery: any) => {
+      (delivery.delivery_productions || []).forEach((dp: any) => {
+        const production = dp.production;
+        const product = production?.product;
+        if (!production || !product) return;
+
+        const productFromList = products.find((p: any) => p.id === product.id);
+        const unitPrice = productFromList?.price ?? product.price ?? 0;
+        const splits = productFromList?.splits
+          ? productFromList.splits
+          : companies.map((c: any) => ({ company_id: c.id, amount: 0 }));
+
+        newLines.push({
+          product_id: product.id,
+          product_name: product.name,
+          quantity: Number(production.quantity || 0),
+          unit_price: unitPrice,
+          total: Number(production.quantity || 0) * Number(unitPrice || 0),
+          delivery_id: delivery.id,
+          splits
+        });
+      });
+    });
+
+    return newLines;
+  };
+
+  useEffect(() => {
+    if (selectedDeliveryIds.length === 0) {
+      setLines((prevLines) => prevLines.filter((line) => !line.delivery_id));
+      return;
+    }
+
+    const newLines = buildLinesFromDeliveries(selectedDeliveryIds);
+    setLines(newLines);
+  }, [selectedDeliveryIds, deliveries]);
+
   // Effet pour charger les splits quand un produit est sélectionné
   const handleProductChange = async (index: number, productId: string) => {
     updateLine(index, 'product_id', productId);
@@ -138,21 +224,26 @@ export default function InvoiceModal({ companies, customers, products }: any) {
     try {
       // 🆕 DÉCOMPTER LE STOCK UNE SEULE FOIS (avant les splits) via API
       const timestamp = new Date().toISOString();
-      console.log(`\n\n[${timestamp}] 📦 APPEL /api/deduct-stock avec`, lines.length, 'lignes');
-      console.log('Lignes:', lines);
-      
-      const stockRes = await fetch('/api/deduct-stock', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lines })
-      });
-      
-      const stockData = await stockRes.json();
-      if (!stockData.ok) {
-        console.error('❌ Erreur décompte stock:', stockData.error);
-        throw new Error(stockData.error);
+      const stockLines = lines.filter((line) => !line.delivery_id);
+      console.log(`\n\n[${timestamp}] 📦 APPEL /api/deduct-stock avec`, stockLines.length, 'lignes');
+      console.log('Lignes:', stockLines);
+
+      if (stockLines.length > 0) {
+        const stockRes = await fetch('/api/deduct-stock', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lines: stockLines })
+        });
+
+        const stockData = await stockRes.json();
+        if (!stockData.ok) {
+          console.error('❌ Erreur décompte stock:', stockData.error);
+          throw new Error(stockData.error);
+        }
+        console.log('✅ Stock décompté avec succès');
+      } else {
+        console.log('⏭️ Aucun decompte stock (livraisons uniquement)');
       }
-      console.log('✅ Stock décompté avec succès');
       
       // Regrouper les lignes par société selon la répartition (splits)
       const companyMap: Record<string, { total: number, lines: any[] }> = {};
@@ -179,6 +270,7 @@ export default function InvoiceModal({ companies, customers, products }: any) {
             product_id: line.product_id,
             product_name: line.product_name,
             quantity: line.quantity,
+            delivery_id: line.delivery_id || null,
             unit_price: split.amount,
             total: split.amount * line.quantity
           });
@@ -276,6 +368,21 @@ export default function InvoiceModal({ companies, customers, products }: any) {
   // On ne filtre plus les produits par société
   const filteredProducts = products;
 
+  const getDeliverySummary = (delivery: any) => {
+    const items = (delivery.delivery_productions || []).map((dp: any) => {
+      const production = dp.production;
+      const name = production?.product?.name || 'Produit';
+      const qty = production?.quantity || 0;
+      return `${name} x${qty}`;
+    });
+
+    const totalQty = (delivery.delivery_productions || []).reduce((sum: number, dp: any) => {
+      return sum + Number(dp.production?.quantity || 0);
+    }, 0);
+
+    return { items, totalQty };
+  };
+
   return (
     <>
       <button
@@ -339,6 +446,52 @@ export default function InvoiceModal({ companies, customers, products }: any) {
                 {/* Date d'échéance supprimée */}
               </div>
 
+              {/* Livraisons a facturer */}
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Livraisons a facturer (optionnel)</h3>
+                {!customerId ? (
+                  <p className="text-sm text-gray-500">Selectionnez un client pour voir ses livraisons.</p>
+                ) : loadingDeliveries ? (
+                  <p className="text-sm text-gray-500">Chargement des livraisons...</p>
+                ) : deliveries.length === 0 ? (
+                  <p className="text-sm text-gray-500">Aucune livraison disponible pour ce client.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {deliveries.map((delivery: any) => {
+                      const summary = getDeliverySummary(delivery);
+                      const isChecked = selectedDeliveryIds.includes(delivery.id);
+                      return (
+                        <label key={delivery.id} className="flex items-start gap-2 text-sm text-gray-700">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedDeliveryIds((prev) => [...prev, delivery.id]);
+                              } else {
+                                setSelectedDeliveryIds((prev) => prev.filter((id) => id !== delivery.id));
+                              }
+                            }}
+                          />
+                          <div>
+                            <div className="font-medium">
+                              Livraison du {new Date(delivery.delivery_date).toLocaleDateString('fr-FR')}
+                            </div>
+                            <div className="text-gray-600">{summary.items.join(', ')}</div>
+                            <div className="text-gray-500">Total: {summary.totalQty}</div>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+                {selectedDeliveryIds.length > 0 && (
+                  <div className="mt-2 text-xs text-gray-500">
+                    Les lignes de facture sont remplacees par les livraisons selectionnees.
+                  </div>
+                )}
+              </div>
+
               {/* Lignes de facture */}
               <div>
                 <div className="flex justify-between items-center mb-3">
@@ -346,8 +499,9 @@ export default function InvoiceModal({ companies, customers, products }: any) {
                   <button
                     type="button"
                     onClick={addLine}
-                    // plus de désactivation par société
+                    // plus de desactivation par societe
                     className="flex items-center gap-1 text-sm bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                    disabled={selectedDeliveryIds.length > 0}
                   >
                     <PlusIcon className="w-4 h-4" />
                     Ajouter une ligne
@@ -372,6 +526,7 @@ export default function InvoiceModal({ companies, customers, products }: any) {
                               onChange={e => handleProductChange(index, e.target.value)}
                               required
                               className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                              disabled={!!line.delivery_id}
                             >
                               <option value="">Sélectionner...</option>
                               {filteredProducts.map((product: any) => (
@@ -390,6 +545,7 @@ export default function InvoiceModal({ companies, customers, products }: any) {
                               onChange={(e) => updateLine(index, 'quantity', parseFloat(e.target.value))}
                               required
                               className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                              disabled={!!line.delivery_id}
                             />
                           </div>
                           <div>
@@ -403,6 +559,7 @@ export default function InvoiceModal({ companies, customers, products }: any) {
                               onChange={(e) => updateLine(index, 'unit_price', parseFloat(e.target.value))}
                               required
                               className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                              disabled={!!line.delivery_id}
                             />
                           </div>
                           {/* Répartition multi-sociétés - toujours afficher pour voir les splits */}
@@ -443,7 +600,8 @@ export default function InvoiceModal({ companies, customers, products }: any) {
                         <button
                           type="button"
                           onClick={() => removeLine(index)}
-                          className="mt-6 text-red-600 hover:text-red-800"
+                          className="mt-6 text-red-600 hover:text-red-800 disabled:opacity-40"
+                          disabled={!!line.delivery_id}
                         >
                           <TrashIcon className="w-5 h-5" />
                         </button>

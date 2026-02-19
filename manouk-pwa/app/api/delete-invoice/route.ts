@@ -16,15 +16,21 @@ export async function POST(req: NextRequest) {
     // Récupérer les lignes pour restaurer le stock des produits
     const { data: lines, error: linesError } = await supabase
       .from('invoice_lines')
-      .select('product_id, quantity')
+      .select('product_id, quantity, delivery_id')
       .eq('invoice_id', id);
 
     if (linesError) {
       return NextResponse.json({ error: 'Fetch lines failed: ' + linesError.message }, { status: 500 });
     }
 
+    const deliveryIds = new Set<string>();
+
     if (lines && lines.length) {
       for (const line of lines) {
+        if (line.delivery_id) {
+          deliveryIds.add(line.delivery_id);
+          continue;
+        }
         if (!line.product_id || !line.quantity) continue;
         // Lire stock courant
         const { data: productRow, error: prodErr } = await supabase
@@ -46,10 +52,24 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Supprimer la facture (cascade supprime lignes & paiements si FK définis ainsi)
+    // Supprimer la facture (cascade supprime lignes & paiements si FK definis ainsi)
     const { error: deleteError } = await supabase.from('invoices').delete().eq('id', id);
     if (deleteError) {
       return NextResponse.json({ error: 'Delete invoice failed: ' + deleteError.message }, { status: 500 });
+    }
+
+    for (const deliveryId of deliveryIds) {
+      const { count } = await supabase
+        .from('invoice_lines')
+        .select('id', { count: 'exact', head: true })
+        .eq('delivery_id', deliveryId);
+
+      if (!count || count === 0) {
+        await supabase
+          .from('deliveries')
+          .update({ invoiced_at: null })
+          .eq('id', deliveryId);
+      }
     }
 
     return NextResponse.json({ success: true });

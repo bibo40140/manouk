@@ -76,17 +76,37 @@ CREATE TABLE invoices (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 8. Invoice Lines (lignes de facture)
+-- 8. Deliveries (livraisons)
+CREATE TABLE deliveries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE RESTRICT,
+  delivery_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  notes TEXT,
+  invoiced_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by UUID REFERENCES auth.users(id)
+);
+
+-- 9. Delivery Productions (lignes de livraison)
+CREATE TABLE delivery_productions (
+  delivery_id UUID NOT NULL REFERENCES deliveries(id) ON DELETE CASCADE,
+  production_id UUID NOT NULL REFERENCES productions(id) ON DELETE RESTRICT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  PRIMARY KEY (delivery_id, production_id)
+);
+
+-- 10. Invoice Lines (lignes de facture)
 CREATE TABLE invoice_lines (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   invoice_id UUID REFERENCES invoices(id) ON DELETE CASCADE,
+  delivery_id UUID REFERENCES deliveries(id) ON DELETE SET NULL,
   product_id UUID REFERENCES products(id) ON DELETE SET NULL,
   quantity INTEGER NOT NULL,
   price DECIMAL(10,2) NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 9. Payments (paiements sur factures)
+-- 11. Payments (paiements sur factures)
 CREATE TABLE payments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   invoice_id UUID REFERENCES invoices(id) ON DELETE CASCADE,
@@ -95,7 +115,7 @@ CREATE TABLE payments (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 10. Purchases (achats de matières premières)
+-- 12. Purchases (achats de matières premières)
 CREATE TABLE purchases (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   date DATE NOT NULL,
@@ -143,6 +163,8 @@ ALTER TABLE raw_materials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE product_materials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE deliveries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE delivery_productions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invoice_lines ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE purchases ENABLE ROW LEVEL SECURITY;

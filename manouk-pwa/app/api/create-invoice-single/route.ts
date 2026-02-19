@@ -83,6 +83,7 @@ export async function POST(req: NextRequest) {
     // Créer les lignes de facture
     const invoiceLinesDb = lines.map((line: any) => ({
       invoice_id: invoice.id,
+      delivery_id: line.delivery_id || null,
       product_id: line.product_id,
       quantity: line.quantity,
       price: line.unit_price ?? 0
@@ -97,8 +98,19 @@ export async function POST(req: NextRequest) {
       throw linesError;
     }
 
-    // NOTE: Le décompte du stock est géré AVANT la création des factures
-    // dans InvoiceModal.tsx pour éviter les décomptes multiples en cas de split
+    const deliveryIds = Array.from(
+      new Set(lines.map((line: any) => line.delivery_id).filter(Boolean))
+    );
+
+    if (deliveryIds.length > 0) {
+      await supabase
+        .from('deliveries')
+        .update({ invoiced_at: new Date().toISOString() })
+        .in('id', deliveryIds as string[]);
+    }
+
+    // NOTE: Le decompte du stock est gere AVANT la creation des factures
+    // dans InvoiceModal.tsx pour eviter les decomptes multiples en cas de split
 
     return NextResponse.json({ ok: true, invoice });
   } catch (err: any) {

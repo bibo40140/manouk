@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manuel Utilisateur - Manouk App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f7fa;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 3rem 2rem;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .nav {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            position: sticky;
+            top: 1rem;
+            z-index: 100;
+        }
+
+        .nav h3 {
+            color: #667eea;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .nav ul {
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .nav a {
+            color: #555;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            transition: all 0.3s;
+            background: #f8f9fa;
+            font-size: 0.9rem;
+        }
+
+        .nav a:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 1.5rem;
+            font-size: 2rem;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 0.5rem;
+        }
+
+        .section h3 {
+            color: #764ba2;
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .feature-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1.5rem;
+            border-left: 4px solid #667eea;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+
+        .feature-card h4 {
+            color: #667eea;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        .steps {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+        }
+
+        .steps ol {
+            margin-left: 1.5rem;
+            color: #555;
+        }
+
+        .steps li {
+            margin: 0.8rem 0;
+            padding-left: 0.5rem;
+        }
+
+        .steps li strong {
+            color: #667eea;
+        }
+
+        .alert {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            border-left-color: #17a2b8;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            border-left-color: #28a745;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin: 0.2rem;
+        }
+
+        .badge-new {
+            background: #28a745;
+            color: white;
+        }
+
+        .badge-important {
+            background: #dc3545;
+            color: white;
+        }
+
+        .emoji {
+            font-size: 1.5rem;
+            margin-right: 0.5rem;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+            margin-top: 3rem;
+        }
+
+        @media print {
+            .nav {
+                position: static;
+            }
+            body {
+                background: white;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📱 Manuel Utilisateur Manouk App</h1>
+        <p>Guide complet pour gérer votre activité</p>
+    </div>
+
+    <div class="container">
+        <nav class="nav">
+            <h3>Navigation rapide</h3>
+            <ul>
+                <li><a href="#dashboard">🏠 Dashboard</a></li>
+                <li><a href="#stock">📦 Stock</a></li>
+                <li><a href="#achats">🛒 Achats</a></li>
+                <li><a href="#productions">🔧 Productions</a></li>
+                <li><a href="#factures">📄 Factures</a></li>
+                <li><a href="#previsions">📊 Prévisions</a></li>
+                <li><a href="#parametres">⚙️ Paramètres</a></li>
+            </ul>
+        </nav>
+
+        <!-- DASHBOARD -->
+        <section id="dashboard" class="section">
+            <h2><span class="emoji">🏠</span>Dashboard - Vue d'ensemble</h2>
+            <p>Le tableau de bord vous donne une vue d'ensemble de votre activité en temps réel.</p>
+            
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>💰 Statistiques financières</h4>
+                    <p>Visualisez vos revenus, dépenses, créances et dettes en un coup d'œil.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>📈 Graphiques mensuels</h4>
+                    <p>Suivez l'évolution de votre chiffre d'affaires mois par mois.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>🔔 Alertes stock</h4>
+                    <p>Soyez notifié quand vos matières premières atteignent le seuil minimum.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>📋 Activité récente</h4>
+                    <p>Consultez vos dernières factures, achats et productions.</p>
+                </div>
+            </div>
+
+            <div class="alert alert-info">
+                <strong>💡 Astuce :</strong> Utilisez le filtre société en haut à droite pour basculer entre Manouk et Bibizi.
+            </div>
+        </section>
+
+        <!-- STOCK -->
+        <section id="stock" class="section">
+            <h2><span class="emoji">📦</span>Gestion du Stock</h2>
+            <p>Gérez vos matières premières et produits finis en temps réel.</p>
+
+            <h3>Matières premières</h3>
+            <div class="steps">
+                <ol>
+                    <li>Cliquez sur <strong>Stock</strong> dans le menu</li>
+                    <li>Sélectionnez l'onglet <strong>"Matières premières"</strong></li>
+                    <li>Consultez les quantités disponibles et les seuils d'alerte</li>
+                    <li>Pour modifier le stock : cliquez sur le <strong>bouton modifier</strong></li>
+                    <li>Définissez un <strong>seuil d'alerte</strong> pour être notifié par email</li>
+                </ol>
+            </div>
+
+            <h3>Produits finis</h3>
+            <div class="steps">
+                <ol>
+                    <li>Sélectionnez l'onglet <strong>"Produits finis"</strong></li>
+                    <li>Visualisez le stock disponible de chaque produit</li>
+                    <li>Le stock s'ajuste automatiquement lors des productions et factures</li>
+                </ol>
+            </div>
+
+            <div class="alert alert-success">
+                <strong>✅ Automatisation :</strong> Le stock est automatiquement mis à jour lors des achats, productions et ventes !
+            </div>
+        </section>
+
+        <!-- ACHATS -->
+        <section id="achats" class="section">
+            <h2><span class="emoji">🛒</span>Gestion des Achats</h2>
+            <p>Enregistrez vos achats de matières premières et suivez vos paiements.</p>
+
+            <h3>Créer un nouvel achat</h3>
+            <div class="steps">
+                <ol>
+                    <li>Cliquez sur <strong>Achats</strong> dans le menu</li>
+                    <li>Cliquez sur le bouton <strong>"Nouvel achat"</strong></li>
+                    <li>Sélectionnez la <strong>matière première</strong></li>
+                    <li>Choisissez le <strong>fournisseur</strong> et la <strong>société</strong> (Manouk ou Bibizi)</li>
+                    <li>Indiquez la <strong>quantité</strong> et le <strong>coût unitaire</strong></li>
+                    <li>Sélectionnez la <strong>date d'achat</strong></li>
+                    <li>Cochez "Payé" si le paiement est effectué immédiatement</li>
+                    <li>Cliquez sur <strong>"Créer l'achat"</strong></li>
+                </ol>
+            </div>
+
+            <h3>Marquer un achat comme payé <span class="badge badge-new">NOUVEAU</span></h3>
+            <div class="steps">
+                <ol>
+                    <li>Dans la liste des achats, repérez un achat "En attente"</li>
+                    <li>Cliquez sur le bouton <strong>"💰 Marquer comme payé"</strong></li>
+                    <li>Sélectionnez la <strong>date de paiement</strong></li>
+                    <li>Validez</li>
+                </ol>
+            </div>
+
+            <div class="alert">
+                <strong>⚠️ Important :</strong> Le stock de matières premières est automatiquement mis à jour lors de la création de l'achat.
+            </div>
+        </section>
+
+        <!-- PRODUCTIONS -->
+        <section id="productions" class="section">
+            <h2><span class="emoji">🔧</span>Gestion des Productions</h2>
+            <p>Créez des productions et consultez votre historique de fabrication.</p>
+
+            <h3>Créer une nouvelle production</h3>
+            <div class="steps">
+                <ol>
+                    <li>Cliquez sur <strong>Productions</strong> dans le menu</li>
+                    <li>Cliquez sur <strong>"Nouvelle production"</strong></li>
+                    <li>Sélectionnez le <strong>produit</strong> à fabriquer</li>
+                    <li>Indiquez la <strong>quantité</strong> à produire</li>
+                    <li>Sélectionnez la <strong>date de production</strong></li>
+                    <li>Ajoutez des <strong>notes</strong> si nécessaire (optionnel)</li>
+                    <li>Cliquez sur <strong>"Créer la production"</strong></li>
+                </ol>
+            </div>
+
+            <div class="alert alert-success">
+                <strong>✅ Automatisation :</strong> Les matières premières sont automatiquement déduites du stock selon la recette (BOM) du produit, et le stock de produits finis est incrémenté !
+            </div>
+
+            <h3>Consulter l'historique</h3>
+            <div class="steps">
+                <ol>
+                    <li>Utilisez les <strong>filtres</strong> pour rechercher par produit ou par mois</li>
+                    <li>Consultez les <strong>statistiques</strong> : total produit, nombre de productions</li>
+                    <li>Visualisez toutes les productions avec dates et quantités</li>
+                </ol>
+            </div>
+
+            <div class="alert alert-info">
+                <strong>💡 Alertes automatiques :</strong> Si une matière première passe sous le seuil après production, vous recevrez un email automatiquement !
+            </div>
+        </section>
+
+        <!-- FACTURES -->
+        <section id="factures" class="section">
+            <h2><span class="emoji">📄</span>Gestion des Factures</h2>
+            <p>Créez, envoyez et gérez vos factures professionnelles.</p>
+
+            <h3>Créer une nouvelle facture</h3>
+            <div class="steps">
+                <ol>
+                    <li>Cliquez sur <strong>Factures</strong> dans le menu</li>
+                    <li>Cliquez sur <strong>"Nouvelle facture"</strong></li>
+                    <li>Sélectionnez le <strong>client</strong></li>
+                    <li>Choisissez la <strong>date de facture</strong></li>
+                    <li>Ajoutez des <strong>lignes de produits</strong> :
+                        <ul>
+                            <li>Sélectionnez le produit</li>
+                            <li>Indiquez la quantité</li>
+                            <li>Le prix unitaire se remplit automatiquement</li>
+                            <li>Ajustez la répartition entre Manouk et Bibizi si nécessaire</li>
+                        </ul>
+                    </li>
+                    <li>Personnalisez le <strong>message du mail</strong> (optionnel)</li>
+                    <li>Choisissez :
+                        <ul>
+                            <li><strong>"Créer la facture"</strong> : sauvegarde sans envoyer d'email</li>
+                            <li><strong>"Créer et envoyer par mail"</strong> : envoie au client et aux sociétés</li>
+                        </ul>
+                    </li>
+                </ol>
+            </div>
+
+            <div class="alert">
+                <strong>⚠️ Important :</strong> Une facture peut être automatiquement divisée entre Manouk et Bibizi selon la répartition définie pour chaque produit.
+            </div>
+
+            <h3>Envoyer une facture par email <span class="badge badge-new">AMÉLIORÉ</span></h3>
+            <div class="steps">
+                <ol>
+                    <li>Dans la liste des factures, cliquez sur <strong>"✉️ Envoyer par mail"</strong></li>
+                    <li>Modifiez le message si nécessaire</li>
+                    <li>Cliquez sur <strong>"Envoyer"</strong></li>
+                </ol>
+            </div>
+
+            <div class="alert alert-success">
+                <strong>✅ Nouveauté :</strong> L'email est envoyé au client ET aux sociétés concernées (Manouk et/ou Bibizi) automatiquement !
+            </div>
+
+            <h3>Télécharger le PDF d'une facture <span class="badge badge-new">NOUVEAU</span></h3>
+            <div class="steps">
+                <ol>
+                    <li>Dans la liste des factures, cliquez sur <strong>"📄 Voir PDF"</strong></li>
+                    <li>Le PDF se télécharge automatiquement</li>
+                </ol>
+            </div>
+
+            <h3>Renvoyer une facture <span class="badge badge-new">AMÉLIORÉ</span></h3>
+            <div class="steps">
+                <ol>
+                    <li>Cliquez sur <strong>"Renvoyer la facture"</strong></li>
+                    <li>Personnalisez le message si besoin</li>
+                    <li>Cliquez sur <strong>"Envoyer"</strong></li>
+                </ol>
+            </div>
+
+            <div class="alert alert-info">
+                <strong>💡 Astuce :</strong> Lors du renvoi, TOUTES les factures du même numéro (Manouk + Bibizi) sont envoyées en une seule fois !
+            </div>
+
+            <h3>Enregistrer un paiement</h3>
+            <div class="steps">
+                <ol>
+                    <li>Cliquez sur <strong>"💰 Payer"</strong> sur la facture concernée</li>
+                    <li>Indiquez le <strong>montant</strong> du paiement</li>
+                    <li>Sélectionnez la <strong>date</strong> et le <strong>moyen de paiement</strong></li>
+                    <li>Validez</li>
+                </ol>
+            </div>
+
+            <h3>Gérer l'URSSAF</h3>
+            <div class="steps">
+                <ol>
+                    <li><strong>Déclarer l'URSSAF :</strong>
+                        <ul>
+                            <li>Cliquez sur "📋 Déclarer URSSAF"</li>
+                            <li>Indiquez le montant et la date de déclaration</li>
+                        </ul>
+                    </li>
+                    <li><strong>Payer l'URSSAF :</strong>
+                        <ul>
+                            <li>Cliquez sur "💶 Payer URSSAF"</li>
+                            <li>Indiquez le montant et la date de paiement</li>
+                        </ul>
+                    </li>
+                </ol>
+            </div>
+        </section>
+
+        <!-- PRÉVISIONS -->
+        <section id="previsions" class="section">
+            <h2><span class="emoji">📊</span>Prévisions</h2>
+            <p>Anticipez vos besoins en matières premières et planifiez vos productions.</p>
+
+            <h3>Utiliser les prévisions</h3>
+            <div class="steps">
+                <ol>
+                    <li>Cliquez sur <strong>Prévisions</strong> dans le menu</li>
+                    <li>Sélectionnez un <strong>produit</strong></li>
+                    <li>Indiquez la <strong>quantité prévue</strong> à vendre</li>
+                    <li>Consultez :
+                        <ul>
+                            <li>Les quantités de matières premières nécessaires</li>
+                            <li>Les coûts estimés</li>
+                            <li>Le revenu prévu</li>
+                            <li>La marge bénéficiaire</li>
+                        </ul>
+                    </li>
+                </ol>
+            </div>
+
+            <div class="alert alert-info">
+                <strong>💡 Astuce :</strong> Les prévisions vous aident à anticiper vos achats de matières premières en fonction de vos objectifs de vente.
+            </div>
+        </section>
+
+        <!-- PARAMÈTRES -->
+        <section id="parametres" class="section">
+            <h2><span class="emoji">⚙️</span>Paramètres</h2>
+            <p>Configurez votre application selon vos besoins.</p>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>🏢 Sociétés</h4>
+                    <p>Gérez les informations de Manouk et Bibizi : nom, adresse, SIRET, logo, etc.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>📦 Produits</h4>
+                    <p>Créez et modifiez vos produits avec leurs prix et recettes (BOM).</p>
+                </div>
+                <div class="feature-card">
+                    <h4>🧪 Matières premières</h4>
+                    <p>Ajoutez de nouvelles matières premières et définissez leurs unités.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>👥 Clients</h4>
+                    <p>Gérez votre liste de clients avec leurs coordonnées.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>🚚 Fournisseurs</h4>
+                    <p>Enregistrez vos fournisseurs de matières premières.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>📧 Configuration email</h4>
+                    <p>Configurez les paramètres SMTP pour l'envoi automatique des factures.</p>
+                </div>
+            </div>
+
+            <h3>Définir une recette (BOM)</h3>
+            <div class="steps">
+                <ol>
+                    <li>Allez dans <strong>Paramètres → Produits</strong></li>
+                    <li>Cliquez sur <strong>"Modifier"</strong> sur un produit</li>
+                    <li>Dans la section <strong>"Recette (BOM)"</strong> :
+                        <ul>
+                            <li>Ajoutez des matières premières</li>
+                            <li>Indiquez les quantités nécessaires</li>
+                        </ul>
+                    </li>
+                    <li>Sauvegardez</li>
+                </ol>
+            </div>
+
+            <h3>Définir la répartition produit/société</h3>
+            <div class="steps">
+                <ol>
+                    <li>Dans <strong>Paramètres → Produits</strong></li>
+                    <li>Modifiez un produit</li>
+                    <li>Dans <strong>"Répartition société"</strong> :
+                        <ul>
+                            <li>Définissez le montant attribué à Manouk</li>
+                            <li>Définissez le montant attribué à Bibizi</li>
+                        </ul>
+                    </li>
+                    <li>Ces montants seront utilisés automatiquement lors de la création des factures</li>
+                </ol>
+            </div>
+        </section>
+
+        <!-- ASTUCES -->
+        <section class="section">
+            <h2><span class="emoji">💡</span>Astuces et bonnes pratiques</h2>
+            
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>🔔 Alertes stock</h4>
+                    <p>Définissez des seuils d'alerte pour toutes vos matières premières critiques. Vous recevrez un email automatique quand le stock est bas.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>📱 Multi-société</h4>
+                    <p>Utilisez le sélecteur en haut à droite pour basculer entre Manouk et Bibizi et voir les données spécifiques.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>💾 Sauvegarde automatique</h4>
+                    <p>Toutes vos données sont automatiquement sauvegardées dans le cloud. Pas besoin de sauvegarder manuellement !</p>
+                </div>
+                <div class="feature-card">
+                    <h4>📊 Tableaux de bord</h4>
+                    <p>Consultez régulièrement le dashboard pour suivre l'évolution de votre activité.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- FAQ -->
+        <section class="section">
+            <h2><span class="emoji">❓</span>Questions fréquentes</h2>
+            
+            <h3>Comment modifier une facture déjà créée ?</h3>
+            <p>Cliquez sur "✏️ Modifier" dans la liste des factures. Vous pouvez modifier toutes les informations sauf le numéro de facture.</p>
+
+            <h3>Puis-je supprimer une facture ?</h3>
+            <p>Oui, cliquez sur "🗑️ Supprimer". Le stock sera restauré et les paiements/URSSAF associés seront supprimés.</p>
+
+            <h3>Comment savoir si mes emails sont bien envoyés ?</h3>
+            <p>Une fois l'email envoyé, la facture affiche "✉️ Facture déjà envoyée" avec la date d'envoi. Vérifiez également votre boîte mail (l'email est envoyé aux sociétés aussi).</p>
+
+            <h3>Le stock ne se met pas à jour ?</h3>
+            <p>Rafraîchissez la page. Le stock s'actualise automatiquement après chaque achat, production ou facture.</p>
+
+            <h3>Comment définir le prix d'un produit ?</h3>
+            <p>Allez dans Paramètres → Produits → Modifier le produit → Définissez le prix dans "Répartition société" (somme de Manouk + Bibizi).</p>
+        </section>
+    </div>
+
+    <div class="footer">
+        <p><strong>Manouk App</strong> - Version 2.0 - Février 2026</p>
+        <p>Pour toute question ou assistance, contactez le support technique.</p>
+    </div>
+</body>
+</html>

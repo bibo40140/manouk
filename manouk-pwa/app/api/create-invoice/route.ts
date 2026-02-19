@@ -69,6 +69,7 @@ export async function POST(req: NextRequest) {
       // Créer les lignes de facture
       const invoiceLinesDb = companyLines.map((line: any) => ({
         invoice_id: invoice.id,
+        delivery_id: line.delivery_id || null,
         product_id: line.product_id,
         quantity: line.quantity,
         price: line.unit_price ?? 0
@@ -79,6 +80,17 @@ export async function POST(req: NextRequest) {
         .insert(invoiceLinesDb);
 
       if (linesError) throw linesError;
+
+      const deliveryIds = Array.from(
+        new Set(companyLines.map((line: any) => line.delivery_id).filter(Boolean))
+      );
+
+      if (deliveryIds.length > 0) {
+        await supabase
+          .from('deliveries')
+          .update({ invoiced_at: new Date().toISOString() })
+          .in('id', deliveryIds as string[]);
+      }
 
       // Récupérer les infos complètes pour l'email
       const { data: company } = await supabase

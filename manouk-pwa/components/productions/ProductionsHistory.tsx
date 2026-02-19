@@ -2,10 +2,14 @@
 
 import { useState, useMemo } from 'react'
 import ProductionButton from '@/components/dashboard/ProductionButton'
+import MarkDeliveredModal from '@/components/productions/MarkDeliveredModal'
+import EditProductionModal from '@/components/productions/EditProductionModal'
 
-export default function ProductionsHistory({ productions: initialProductions, products }: any) {
+export default function ProductionsHistory({ productions: initialProductions, products, customers }: any) {
   const [filterProduct, setFilterProduct] = useState<string>('all')
   const [filterMonth, setFilterMonth] = useState<string>('all')
+  const [selectedProduction, setSelectedProduction] = useState<any>(null)
+  const [editingProduction, setEditingProduction] = useState<any>(null)
 
   // Extraire les mois disponibles
   const availableMonths = useMemo(() => {
@@ -52,6 +56,12 @@ export default function ProductionsHistory({ productions: initialProductions, pr
       month: 'short', 
       year: 'numeric' 
     })
+  }
+
+  const getDeliveryLabel = (production: any) => {
+    if (!production.delivery) return 'Non livree'
+    const date = production.delivery.delivery_date
+    return date ? `Livree le ${formatDate(date)}` : 'Livree'
   }
 
   const getMonthLabel = (monthStr: string) => {
@@ -140,12 +150,18 @@ export default function ProductionsHistory({ productions: initialProductions, pr
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Notes
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Livraison
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredProductions.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
                     Aucune production trouvée
                   </td>
                 </tr>
@@ -166,6 +182,35 @@ export default function ProductionsHistory({ productions: initialProductions, pr
                     <td className="px-6 py-4 text-sm text-gray-500">
                       {production.notes || '-'}
                     </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {production.delivery ? (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                          {getDeliveryLabel(production)}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                          Non livree
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setEditingProduction(production)}
+                          className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                        >
+                          ✏️ Modifier
+                        </button>
+                        {!production.delivery && (
+                          <button
+                            onClick={() => setSelectedProduction(production)}
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          >
+                            📦 Marquer livree
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -173,6 +218,28 @@ export default function ProductionsHistory({ productions: initialProductions, pr
           </table>
         </div>
       </div>
+
+      {selectedProduction && (
+        <MarkDeliveredModal
+          production={selectedProduction}
+          customers={customers}
+          onClose={() => setSelectedProduction(null)}
+          onSuccess={() => {
+            window.location.reload()
+          }}
+        />
+      )}
+
+      {editingProduction && (
+        <EditProductionModal
+          production={editingProduction}
+          products={products}
+          onClose={() => setEditingProduction(null)}
+          onSuccess={() => {
+            window.location.reload()
+          }}
+        />
+      )}
 
       {filteredProductions.length > 0 && (
         <div className="text-sm text-gray-500 text-right">

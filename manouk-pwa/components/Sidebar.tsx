@@ -9,7 +9,8 @@ import {
   CurrencyEuroIcon,
   CogIcon,
   CubeIcon,
-  WrenchScrewdriverIcon
+  WrenchScrewdriverIcon,
+  TruckIcon
 } from '@heroicons/react/24/outline'
 
 const navigation = [
@@ -18,6 +19,7 @@ const navigation = [
   { name: 'Achats', href: '/dashboard/purchases', icon: ShoppingCartIcon },
   { name: 'Stocks', href: '/dashboard/stock', icon: CubeIcon },
   { name: 'Productions', href: '/dashboard/productions', icon: WrenchScrewdriverIcon },
+  { name: 'Livraisons', href: '/dashboard/deliveries', icon: TruckIcon },
   { name: 'Trésorerie prévisionnelle', href: '/dashboard/forecast', icon: CurrencyEuroIcon },
   { name: 'Paramètres', href: '/dashboard/settings', icon: CogIcon },
 ]
