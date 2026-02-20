@@ -21,7 +21,6 @@ export default function RecentInvoices({ invoices }: { invoices: any[] }) {
                 <th className="px-3 sm:px-4 py-2 text-right text-xs font-semibold text-gray-600">Total</th>
                 <th className="hidden sm:table-cell px-3 sm:px-4 py-2 text-right text-xs font-semibold text-gray-600">Restant</th>
               </tr>
-              </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {invoices.map((invoice) => (
