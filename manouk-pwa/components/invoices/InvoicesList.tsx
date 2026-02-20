@@ -51,7 +51,7 @@ export default function InvoicesList({ invoices: initialInvoices, companies, cus
   return (
     <>
 
-      <div className="bg-white rounded-xl shadow-md p-6">
+      <div className="bg-white rounded-xl shadow-md p-3 sm:p-6">
         {/* Plus de filtre société ici, mono-société */}
 
         {/* Liste des factures */}
@@ -60,21 +60,21 @@ export default function InvoicesList({ invoices: initialInvoices, companies, cus
             Aucune facture. Créez-en une avec le bouton "Nouvelle facture" ci-dessus.
           </p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto -mx-3 sm:mx-0">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">N° Facture</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Client</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Société</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Date</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Total</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Payé</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Restant</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">Statut</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">URSSAF</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">Montant URSSAF</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Actions</th>
+                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-gray-600">N° Facture</th>
+                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-gray-600">Client</th>
+                  <th className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-gray-600">Société</th>
+                  <th className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-gray-600">Date</th>
+                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-gray-600">Total</th>
+                  <th className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-gray-600">Payé</th>
+                  <th className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-gray-600">Restant</th>
+                  <th className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 text-center text-xs font-semibold text-gray-600">Statut</th>
+                  <th className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 text-center text-xs font-semibold text-gray-600">URSSAF</th>
+                  <th className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 text-center text-xs font-semibold text-gray-600">Montant</th>
+                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-gray-600">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -82,31 +82,31 @@ export default function InvoicesList({ invoices: initialInvoices, companies, cus
                   const remaining = Number(invoice.total) - Number(invoice.paid)
                   return (
                     <tr key={invoice.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                      <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium text-gray-900">
                         {invoice.invoice_number}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
+                      <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-700">
                         {invoice.customer?.name || '-'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
+                      <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600">
                         {invoice.company?.name || '-'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
+                      <td className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600">
                         {new Date(invoice.date).toLocaleDateString('fr-FR')}
                       </td>
-                      <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">
+                      <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-right font-medium text-gray-900">
                         {formatEuro(Number(invoice.total))}
                       </td>
-                      <td className="px-4 py-3 text-sm text-right text-green-600">
+                      <td className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-right text-green-600">
                         {formatEuro(Number(invoice.paid))}
                       </td>
-                      <td className="px-4 py-3 text-sm text-right font-medium text-orange-600">
+                      <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-right font-medium text-orange-600">
                         {formatEuro(remaining)}
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 text-center">
                         {getStatusBadge(invoice)}
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 text-center">
                         <div className="space-y-1">
                           {/* URSSAF Declaration Badge */}
                           {invoice.urssaf_declared_date ? (
@@ -131,10 +131,10 @@ export default function InvoicesList({ invoices: initialInvoices, companies, cus
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 text-center">
                         {formatEuro(Number(invoice.urssaf_amount || 0))}
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-2 sm:px-4 py-2 sm:py-3 text-right">
                         <div className="flex flex-col gap-2">
                           <div className="flex justify-end gap-2">
                             <button

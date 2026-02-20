@@ -81,10 +81,10 @@ export default async function DashboardPage() {
   const { data: products } = await client.from('products').select('*')
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">📊 Tableau de bord</h1>
-        <div className="flex gap-3 items-center">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">📊 Tableau de bord</h1>
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center">
           <ProductionButton products={products || []} />
           {isAdmin && <CompanyFilter companies={companies || []} canSeeAllOverride={true} />}
         </div>

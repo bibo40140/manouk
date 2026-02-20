@@ -77,18 +77,18 @@ export default function PurchasesList({ purchases, companies, suppliers, rawMate
             Aucun achat. Créez-en un avec le bouton "Nouvel achat" ci-dessus.
           </p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Matière première</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Société</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Quantité</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Coût unitaire</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Total</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">Statut</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Actions</th>
+                  <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-gray-600">Date</th>
+                  <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-gray-600">Matière première</th>
+                  <th className="hidden md:table-cell px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-gray-600">Société</th>
+                  <th className="hidden lg:table-cell px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-gray-600">Quantité</th>
+                  <th className="hidden xl:table-cell px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-gray-600">Coût unitaire</th>
+                  <th className="px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-gray-600">Total</th>
+                  <th className="hidden md:table-cell px-3 sm:px-4 py-2 sm:py-3 text-center text-xs font-semibold text-gray-600">Statut</th>
+                  <th className="px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-gray-600">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -96,25 +96,25 @@ export default function PurchasesList({ purchases, companies, suppliers, rawMate
                   const total = Number(purchase.quantity) * Number(purchase.unit_cost)
                   return (
                     <tr key={purchase.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-600">
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600">
                         {new Date(purchase.purchase_date).toLocaleDateString('fr-FR')}
                       </td>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium text-gray-900">
                         {purchase.raw_material?.name || '-'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
+                      <td className="hidden md:table-cell px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600">
                         {purchase.company?.name || '-'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-900">
+                      <td className="hidden lg:table-cell px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-right text-gray-900">
                         {purchase.quantity} {purchase.raw_material?.unit || ''}
                       </td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-700">
+                      <td className="hidden xl:table-cell px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-right text-gray-700">
                         {formatEuro(Number(purchase.unit_cost))}
                       </td>
-                      <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-right font-medium text-gray-900">
                         {formatEuro(total)}
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="hidden md:table-cell px-3 sm:px-4 py-2 sm:py-3 text-center">
                         {purchase.paid ? (
                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
                             Payé {purchase.payment_date ? `le ${new Date(purchase.payment_date).toLocaleDateString('fr-FR')}` : ''}
@@ -125,8 +125,8 @@ export default function PurchasesList({ purchases, companies, suppliers, rawMate
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex justify-end gap-2">
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-right">
+                        <div className="flex flex-col gap-1 text-xs sm:text-sm">
                           {!purchase.paid && (
                             <button
                               onClick={() => setPaymentPurchase(purchase)}
