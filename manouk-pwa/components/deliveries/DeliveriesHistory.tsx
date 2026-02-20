@@ -34,7 +34,51 @@ export default function DeliveriesHistory({ deliveries, customers, productions, 
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-        <div className="overflow-x-auto -mx-4 sm:mx-0">
+        {/* Vue CARTE sur mobile */}
+        <div className="md:hidden space-y-3 p-4">
+          {(deliveries || []).length === 0 ? (
+            <p className="text-center text-gray-500">Aucune livraison</p>
+          ) : (
+            deliveries.map((delivery: any) => {
+              const summary = getSummary(delivery)
+              const status = delivery.invoiced_at ? 'Facturee' : 'A facturer'
+              return (
+                <div key={delivery.id} className="p-3 border border-gray-200 rounded-lg">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="font-semibold text-gray-900">{delivery.customer?.name || '-'}</p>
+                      <p className="text-xs text-gray-600">{formatDate(delivery.delivery_date)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500">{summary.totalQty} article(s)</p>
+                      <p className="text-xs text-gray-600">{status}</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-700 mb-2">Produits: {summary.items.join(', ')}</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setEditingDelivery(delivery)}
+                      className="flex-1 px-2 py-1 text-xs text-indigo-600 hover:text-indigo-800 border border-indigo-200 rounded hover:bg-indigo-50 transition-colors"
+                    >
+                      ✏️ Modifier
+                    </button>
+                    {!delivery.invoiced_at && (
+                      <button
+                        onClick={() => setSelectedDelivery(delivery)}
+                        className="flex-1 px-2 py-1 text-xs text-green-600 hover:text-green-800 border border-green-200 rounded hover:bg-green-50 transition-colors"
+                      >
+                        📄 Facturer
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        {/* Vue TABLE sur desktop */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>

@@ -77,21 +77,84 @@ export default function PurchasesList({ purchases, companies, suppliers, rawMate
             Aucun achat. Créez-en un avec le bouton "Nouvel achat" ci-dessus.
           </p>
         ) : (
-          <div className="overflow-x-auto -mx-4 sm:mx-0">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-gray-600">Date</th>
-                  <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-gray-600">Matière première</th>
-                  <th className="hidden md:table-cell px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-gray-600">Société</th>
-                  <th className="hidden lg:table-cell px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-gray-600">Quantité</th>
-                  <th className="hidden xl:table-cell px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-gray-600">Coût unitaire</th>
-                  <th className="px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-gray-600">Total</th>
-                  <th className="hidden md:table-cell px-3 sm:px-4 py-2 sm:py-3 text-center text-xs font-semibold text-gray-600">Statut</th>
-                  <th className="px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-gray-600">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
+          <>
+            {/* Vue CARTE sur mobile */}
+            <div className="md:hidden space-y-3">
+              {purchases.map((purchase: any) => {
+                const total = Number(purchase.quantity) * Number(purchase.unit_cost)
+                return (
+                  <div key={purchase.id} className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <p className="font-semibold text-gray-900">{purchase.raw_material?.name || '-'}</p>
+                        <p className="text-sm text-gray-600">{new Date(purchase.purchase_date).toLocaleDateString('fr-FR')}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-gray-900">{formatEuro(total)}</p>
+                        <p className="text-xs text-gray-500">{purchase.company?.name || '-'}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 mb-3 text-sm">
+                      <div>
+                        <p className="text-gray-600">Quantité</p>
+                        <p className="font-medium text-gray-900">{purchase.quantity} {purchase.raw_material?.unit || ''}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-gray-600">Coût unitaire</p>
+                        <p className="font-medium text-gray-900">{formatEuro(Number(purchase.unit_cost))}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="mb-3">
+                      {purchase.paid ? (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                          ✓ Payé {purchase.payment_date ? `le ${new Date(purchase.payment_date).toLocaleDateString('fr-FR')}` : ''}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                          En attente
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="flex flex-col gap-2">
+                      {!purchase.paid && (
+                        <button
+                          onClick={() => setPaymentPurchase(purchase)}
+                          className="text-center px-2 py-1 text-sm text-green-600 hover:text-green-800 border border-green-200 rounded hover:bg-green-50 transition-colors"
+                        >
+                          💰 Marquer comme payé
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDelete(purchase.id)}
+                        className="text-center px-2 py-1 text-sm text-red-600 hover:text-red-800 border border-red-200 rounded hover:bg-red-50 transition-colors"
+                      >
+                        🗑️ Supprimer
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Vue TABLE sur desktop */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-gray-600">Date</th>
+                    <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-gray-600">Matière première</th>
+                    <th className="hidden md:table-cell px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-gray-600">Société</th>
+                    <th className="hidden lg:table-cell px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-gray-600">Quantité</th>
+                    <th className="hidden xl:table-cell px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-gray-600">Coût unitaire</th>
+                    <th className="px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-gray-600">Total</th>
+                    <th className="hidden md:table-cell px-3 sm:px-4 py-2 sm:py-3 text-center text-xs font-semibold text-gray-600">Statut</th>
+                    <th className="px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-gray-600">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
                 {purchases.map((purchase: any) => {
                   const total = Number(purchase.quantity) * Number(purchase.unit_cost)
                   return (
@@ -148,7 +211,8 @@ export default function PurchasesList({ purchases, companies, suppliers, rawMate
                 })}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
       </div>
 

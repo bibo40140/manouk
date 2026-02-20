@@ -60,24 +60,117 @@ export default function InvoicesList({ invoices: initialInvoices, companies, cus
             Aucune facture. Créez-en une avec le bouton "Nouvelle facture" ci-dessus.
           </p>
         ) : (
-          <div className="overflow-x-auto -mx-3 sm:mx-0">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-gray-600">N° Facture</th>
-                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-gray-600">Client</th>
-                  <th className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-gray-600">Société</th>
-                  <th className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-gray-600">Date</th>
-                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-gray-600">Total</th>
-                  <th className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-gray-600">Payé</th>
-                  <th className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-gray-600">Restant</th>
-                  <th className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 text-center text-xs font-semibold text-gray-600">Statut</th>
-                  <th className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 text-center text-xs font-semibold text-gray-600">URSSAF</th>
-                  <th className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 text-center text-xs font-semibold text-gray-600">Montant</th>
-                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-gray-600">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
+          <>
+            {/* Vue CARTE sur mobile */}
+            <div className="md:hidden space-y-3">
+              {filteredInvoices.map((invoice: any) => {
+                const remaining = Number(invoice.total) - Number(invoice.paid)
+                return (
+                  <div key={invoice.id} className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <p className="font-semibold text-gray-900">{invoice.invoice_number}</p>
+                        <p className="text-sm text-gray-600">{invoice.customer?.name || '-'}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-gray-900">{formatEuro(Number(invoice.total))}</p>
+                        <p className="text-xs text-gray-500">{new Date(invoice.date).toLocaleDateString('fr-FR')}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 mb-3 text-sm">
+                      <div>
+                        <p className="text-gray-600">Payé</p>
+                        <p className="font-medium text-green-600">{formatEuro(Number(invoice.paid))}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-gray-600">Restant</p>
+                        <p className={`font-medium ${remaining > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                          {formatEuro(remaining)}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="mb-3">
+                      {getStatusBadge(invoice)}
+                    </div>
+                    
+                    <div className="flex flex-col gap-2">
+                      <button
+                        onClick={() => setEditInvoice(invoice)}
+                        className="text-center px-2 py-1 text-sm text-indigo-600 hover:text-indigo-800 border border-indigo-200 rounded hover:bg-indigo-50 transition-colors"
+                      >
+                        ✏️ Modifier
+                      </button>
+                      <button
+                        onClick={async () => {
+                          try {
+                            const res = await fetch('/api/download-invoice-pdf', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ invoiceId: invoice.id })
+                            });
+                            if (res.ok) {
+                              const blob = await res.blob();
+                              const url = window.URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `Facture-${invoice.invoice_number}.pdf`;
+                              document.body.appendChild(a);
+                              a.click();
+                              window.URL.revokeObjectURL(url);
+                              document.body.removeChild(a);
+                            } else {
+                              alert('Erreur lors du téléchargement du PDF');
+                            }
+                          } catch (err) {
+                            alert('Erreur : ' + (err as Error).message);
+                          }
+                        }}
+                        className="text-center px-2 py-1 text-sm text-purple-600 hover:text-purple-800 border border-purple-200 rounded hover:bg-purple-50 transition-colors"
+                      >
+                        📄 Voir PDF
+                      </button>
+                      {invoice.email_sent ? (
+                        <button
+                          onClick={() => setResendModal({ invoice, open: true })}
+                          className="text-center px-2 py-1 text-sm text-blue-600 hover:text-blue-800 border border-blue-200 rounded hover:bg-blue-50 transition-colors"
+                        >
+                          ✉️ Renvoyer
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setResendModal({ invoice, open: true })}
+                          className="text-center px-2 py-1 text-sm text-blue-600 hover:text-blue-800 border border-blue-200 rounded hover:bg-blue-50 transition-colors"
+                        >
+                          ✉️ Envoyer mail
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Vue TABLE sur desktop */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-gray-600">N° Facture</th>
+                    <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-gray-600">Client</th>
+                    <th className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-gray-600">Société</th>
+                    <th className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-gray-600">Date</th>
+                    <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-gray-600">Total</th>
+                    <th className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-gray-600">Payé</th>
+                    <th className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-gray-600">Restant</th>
+                    <th className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 text-center text-xs font-semibold text-gray-600">Statut</th>
+                    <th className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 text-center text-xs font-semibold text-gray-600">URSSAF</th>
+                    <th className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 text-center text-xs font-semibold text-gray-600">Montant</th>
+                    <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-semibold text-gray-600">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
                 {filteredInvoices.map((invoice: any) => {
                   const remaining = Number(invoice.total) - Number(invoice.paid)
                   return (
@@ -294,9 +387,10 @@ export default function InvoicesList({ invoices: initialInvoices, companies, cus
                     </tr>
                   )
                 })}
-              </tbody>
-            </table>
-          </div>
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

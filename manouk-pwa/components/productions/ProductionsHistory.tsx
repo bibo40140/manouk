@@ -134,7 +134,49 @@ export default function ProductionsHistory({ productions: initialProductions, pr
 
       {/* Tableau */}
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-        <div className="overflow-x-auto -mx-4 sm:mx-0">
+        {/* Vue CARTE sur mobile */}
+        <div className="md:hidden space-y-3 p-4">
+          {filteredProductions.length === 0 ? (
+            <p className="text-center text-gray-500">Aucune production trouvée</p>
+          ) : (
+            filteredProductions.map((production: any) => (
+              <div key={production.id} className="p-3 border border-gray-200 rounded-lg">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <p className="font-semibold text-gray-900">{production.product?.name || 'Produit inconnu'}</p>
+                    <p className="text-xs text-gray-600">{formatDate(production.production_date)}</p>
+                  </div>
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    +{production.quantity}
+                  </span>
+                </div>
+                {production.notes && <p className="text-xs text-gray-600 mb-2">{production.notes}</p>}
+                <div className="text-xs text-gray-600 mb-2">
+                  Status: {production.delivered_at ? 'Livrée' : 'Non livrée'}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setEditingProduction(production)}
+                    className="flex-1 px-2 py-1 text-xs text-indigo-600 hover:text-indigo-800 border border-indigo-200 rounded hover:bg-indigo-50 transition-colors"
+                  >
+                    ✏️ Modifier
+                  </button>
+                  {!production.delivered_at && (
+                    <button
+                      onClick={() => setSelectedProduction(production)}
+                      className="flex-1 px-2 py-1 text-xs text-green-600 hover:text-green-800 border border-green-200 rounded hover:bg-green-50 transition-colors"
+                    >
+                      📦 Livrer
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Vue TABLE sur desktop */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
